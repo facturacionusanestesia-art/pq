@@ -1,20 +1,20 @@
 -- ============================================================
--- CREACIÓN DE BASE DE DATOS
+-- DATABASE CREATION
 -- ============================================================
 -- DROP DATABASE IF EXISTS pq2;
 -- CREATE DATABASE pq2 CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 USE pq2;
 
 -- ============================================================
--- TABLA: clinicas
+-- TABLE: clinics
 -- ============================================================
-CREATE TABLE clinicas (
+CREATE TABLE clinics (
     id INT AUTO_INCREMENT PRIMARY KEY,
-    nombre VARCHAR(50) NOT NULL,
-    codigo VARCHAR(10) NOT NULL UNIQUE
+    name VARCHAR(50) NOT NULL,
+    code VARCHAR(10) NOT NULL UNIQUE
 );
 
-INSERT INTO clinicas (nombre, codigo) VALUES
+INSERT INTO clinics (name, code) VALUES
 ('MCAN', 'MCAN'),
 ('QUIR', 'QUIR'),
 ('MIR',  'MIR'),
@@ -22,107 +22,108 @@ INSERT INTO clinicas (nombre, codigo) VALUES
 ('MONT', 'MONT');
 
 -- ============================================================
--- TABLA: turnos
+-- TABLE: shifts
 -- ============================================================
-CREATE TABLE turnos (
+CREATE TABLE shifts (
     id INT AUTO_INCREMENT PRIMARY KEY,
-    dia VARCHAR(20) NOT NULL,
-    franja ENUM('mañana','tarde') NOT NULL
+    day VARCHAR(20) NOT NULL,
+    slot ENUM('morning','afternoon') NOT NULL
 );
 
-INSERT INTO turnos (dia, franja) VALUES
-('Lunes', 'mañana'), ('Lunes', 'tarde'),
-('Martes', 'mañana'), ('Martes', 'tarde'),
-('Miércoles', 'mañana'), ('Miércoles', 'tarde'),
-('Jueves', 'mañana'), ('Jueves', 'tarde'),
-('Viernes', 'mañana'), ('Viernes', 'tarde'),
-('Sábado', 'mañana'), ('Sábado', 'tarde'),
-('Domingo', 'mañana'), ('Domingo', 'tarde');
+INSERT INTO shifts (day, slot) VALUES
+('monday', 'morning'),   ('monday', 'afternoon'),
+('tuesday', 'morning'),  ('tuesday', 'afternoon'),
+('wednesday', 'morning'),('wednesday', 'afternoon'),
+('thursday', 'morning'), ('thursday', 'afternoon'),
+('friday', 'morning'),   ('friday', 'afternoon'),
+('saturday', 'morning'), ('saturday', 'afternoon'),
+('sunday', 'morning'),   ('sunday', 'afternoon');
 
 -- ============================================================
--- TABLA: profesionales
+-- TABLE: professionals
 -- ============================================================
-CREATE TABLE profesionales (
+CREATE TABLE professionals (
     id INT AUTO_INCREMENT PRIMARY KEY,
-    nombre VARCHAR(50) NOT NULL,
-    tipo ENUM('cirujano','anestesista') NOT NULL
+    name VARCHAR(50) NOT NULL,
+    role ENUM('surgeon','anesthetist') NOT NULL
 );
 
-INSERT INTO profesionales (nombre, tipo) VALUES
-('Sola', 'cirujano'),
-('Garrido', 'cirujano'),
-('Gros', 'cirujano'),
-('Deus', 'cirujano'),
-('Cuenca', 'cirujano'),
-('Domingo', 'cirujano'),
+INSERT INTO professionals (name, role) VALUES
+('Sola', 'surgeon'),
+('Garrido', 'surgeon'),
+('Gros', 'surgeon'),
+('Deus', 'surgeon'),
+('Cuenca', 'surgeon'),
+('Domingo', 'surgeon'),
 
-('Arauzo', 'anestesista'),
-('Bes', 'anestesista'),
-('Arroyo', 'anestesista'),
-('Aspiroz', 'anestesista'),
-('Céspedes', 'anestesista'),
-('Consuegra', 'anestesista'),
-('Izuzquiza', 'anestesista'),
-('Lloreda', 'anestesista'),
-('Ortiz', 'anestesista');
+('Arauzo', 'anesthetist'),
+('Bes', 'anesthetist'),
+('Arroyo', 'anesthetist'),
+('Aspiroz', 'anesthetist'),
+('Céspedes', 'anesthetist'),
+('Consuegra', 'anesthetist'),
+('Izuzquiza', 'anesthetist'),
+('Lloreda', 'anesthetist'),
+('Ortiz', 'anesthetist');
 
 -- ============================================================
--- TABLA: reservas
+-- TABLE: reservations
 -- ============================================================
-CREATE TABLE reservas (
+CREATE TABLE reservations (
     id INT AUTO_INCREMENT PRIMARY KEY,
-    turno_id INT NOT NULL,
-    clinica_id INT NOT NULL,
-    estado ENUM('empty','partial','full') NOT NULL DEFAULT 'empty',
-    UNIQUE KEY unique_reserva (turno_id, clinica_id),
-    FOREIGN KEY (turno_id) REFERENCES turnos(id) ON DELETE CASCADE,
-    FOREIGN KEY (clinica_id) REFERENCES clinicas(id) ON DELETE CASCADE
-);
-
--- ============================================================
--- TABLA: reserva_profesionales
--- ============================================================
-CREATE TABLE reserva_profesionales (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    reserva_id INT NOT NULL,
-    profesional_id INT NOT NULL,
-    FOREIGN KEY (reserva_id) REFERENCES reservas(id) ON DELETE CASCADE,
-    FOREIGN KEY (profesional_id) REFERENCES profesionales(id) ON DELETE CASCADE
+    shift_id INT NOT NULL,
+    clinic_id INT NOT NULL,
+    status ENUM('empty','partial','full') NOT NULL DEFAULT 'empty',
+    UNIQUE KEY unique_reservation (shift_id, clinic_id),
+    FOREIGN KEY (shift_id) REFERENCES shifts(id) ON DELETE CASCADE,
+    FOREIGN KEY (clinic_id) REFERENCES clinics(id) ON DELETE CASCADE
 );
 
 -- ============================================================
--- DATOS DE EJEMPLO (turnos-random.sql integrado)
+-- TABLE: reservation_professionals
+-- ============================================================
+CREATE TABLE reservation_professionals (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    reservation_id INT NOT NULL,
+    professional_id INT NOT NULL,
+    FOREIGN KEY (reservation_id) REFERENCES reservations(id) ON DELETE CASCADE,
+    FOREIGN KEY (professional_id) REFERENCES professionals(id) ON DELETE CASCADE
+);
+
+-- ============================================================
+-- SAMPLE DATA
 -- ============================================================
 
--- Crear reservas para todos los turnos y clínicas
-INSERT INTO reservas (turno_id, clinica_id, estado)
-SELECT t.id, c.id,
+-- Create reservations for all shifts and clinics
+INSERT INTO reservations (shift_id, clinic_id, status)
+SELECT s.id, c.id,
        CASE WHEN RAND() < 0.8 THEN 'full' ELSE 'partial' END
-FROM turnos t
-CROSS JOIN clinicas c;
+FROM shifts s
+CROSS JOIN clinics c;
 
--- Asignar profesionales aleatorios
-INSERT INTO reserva_profesionales (reserva_id, profesional_id)
+-- Assign random surgeons
+INSERT INTO reservation_professionals (reservation_id, professional_id)
 SELECT r.id, p.id
-FROM reservas r
-JOIN profesionales p
-WHERE p.tipo = 'cirujano'
+FROM reservations r
+JOIN professionals p
+WHERE p.role = 'surgeon'
 AND RAND() < 0.4;
 
-INSERT INTO reserva_profesionales (reserva_id, profesional_id)
+-- Assign random anesthetists
+INSERT INTO reservation_professionals (reservation_id, professional_id)
 SELECT r.id, p.id
-FROM reservas r
-JOIN profesionales p
-WHERE p.tipo = 'anestesista'
+FROM reservations r
+JOIN professionals p
+WHERE p.role = 'anesthetist'
 AND RAND() < 0.4;
 
--- Limpieza de duplicados y datos inconsistentes
-DELETE rp FROM reserva_profesionales rp
-LEFT JOIN profesionales p ON rp.profesional_id = p.id
+-- Cleanup of duplicates and inconsistent data
+DELETE rp FROM reservation_professionals rp
+LEFT JOIN professionals p ON rp.professional_id = p.id
 WHERE p.id IS NULL;
 
-DELETE r1 FROM reservas r1
-JOIN reservas r2
-  ON r1.turno_id = r2.turno_id
- AND r1.clinica_id = r2.clinica_id
+DELETE r1 FROM reservations r1
+JOIN reservations r2
+  ON r1.shift_id = r2.shift_id
+ AND r1.clinic_id = r2.clinic_id
  AND r1.id > r2.id;
