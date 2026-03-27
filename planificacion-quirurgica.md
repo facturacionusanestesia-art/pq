@@ -1,4 +1,4 @@
-# Sistema de Planificación Quirúrgica  
+# Sistema de Planificación Quirúrgica  v1
 **Documentación técnica del proyecto**
 
 ---

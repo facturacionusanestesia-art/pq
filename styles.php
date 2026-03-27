@@ -1,46 +1,254 @@
-<?php header("Content-type: text/css"); ?>
-/* === COMPLETE STYLES FOR PQ2 ENGLISH VERSION === */
+<?php
+// styles.php - Complete CSS for pq2 Surgical Planning System
+// Spanish UI + Mobile Responsive + Professional Look
+header("Content-type: text/css");
+?>
 
 :root {
-  --bg: #f4f6f9;
-  --card-bg: #ffffff;
-  --primary: #2563eb;
-  --primary-soft: #dbeafe;
-  --danger: #ef4444;
-  --success: #16a34a;
-  --border: #e5e7eb;
-  --text-main: #111827;
-  --text-soft: #6b7280;
-  --empty: #fee2e2;
-  --partial: #fef3c7;
-  --full: #dcfce7;
-  --radius: 10px;
+    --primary: #2563eb;
+    --success: #16a34a;
+    --warning: #f59e0b;
+    --danger: #ef4444;
+    --bg: #f8fafc;
+    --card: #ffffff;
+    --text: #111827;
+    --text-light: #64748b;
+    --border: #e2e8f0;
 }
 
-* { box-sizing: border-box; margin:0; padding:0; font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
 
-body { background: var(--bg); color: var(--text-main); padding: 12px; }
-.app { max-width: 960px; margin: 0 auto; }
+body {
+    font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.5;
+    padding-bottom: 40px;
+}
 
-header { margin-bottom: 12px; }
-header h1 { font-size: 1.4rem; font-weight: 700; }
-header p { font-size: 0.9rem; color: var(--text-soft); }
+.app {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 15px;
+}
 
-.role-bar { margin-top: 10px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+/* Header */
+header {
+    margin-bottom: 25px;
+    text-align: center;
+}
 
-.day { background: var(--card-bg); border-radius: var(--radius); padding: 10px; margin-bottom: 12px; box-shadow: 0 1px 3px rgba(15,23,42,0.08); }
-.day-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
-.shifts { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+header h1 {
+    font-size: 1.8rem;
+    font-weight: 700;
+    color: #1e3a8a;
+    margin-bottom: 6px;
+}
 
-.shift { border-radius: 8px; border: 1px solid var(--border); padding: 8px; background: #f9fafb; }
-.shift-title { font-size: 0.8rem; font-weight: 600; color: var(--text-soft); text-transform: uppercase; }
+header p {
+    color: var(--text-light);
+    font-size: 1.05rem;
+}
 
-.clinic-card { border-radius: 6px; padding: 8px; margin-bottom: 6px; cursor: pointer; }
-.state-empty  { background: var(--empty);  border: 1px dashed var(--danger); }
-.state-partial{ background: var(--partial); border: 1px dashed #f59e0b; }
-.state-full   { background: var(--full);    border: 1px solid var(--success); }
+/* Profile selector */
+header select {
+    padding: 10px 14px;
+    font-size: 1rem;
+    border: 2px solid #cbd5e1;
+    border-radius: 8px;
+    background: white;
+    margin-top: 12px;
+}
 
-.modal-backdrop { position: fixed; inset: 0; background: rgba(15,23,42,0.5); display: none; align-items: center; justify-content: center; z-index: 1000; }
-.modal { background: #fff; border-radius: 12px; padding: 20px; width: 90%; max-width: 460px; box-shadow: 0 10px 25px rgba(0,0,0,0.25); }
+/* Day container */
+.day {
+    background: var(--card);
+    border-radius: 14px;
+    margin-bottom: 22px;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.07);
+    overflow: hidden;
+}
 
-/* ... rest of your original styles remain unchanged ... */
+.day-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 14px 18px;
+    background: #f1f5f9;
+    font-weight: 600;
+    font-size: 1.15rem;
+    border-bottom: 1px solid var(--border);
+}
+
+.day-header h2 {
+    color: #1e40af;
+}
+
+/* Shifts layout */
+.shifts {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px;
+    padding: 16px;
+}
+
+.shift-title {
+    font-size: 0.9rem;
+    font-weight: 700;
+    color: var(--text-light);
+    text-transform: uppercase;
+    text-align: center;
+    margin-bottom: 10px;
+    letter-spacing: 0.5px;
+}
+
+/* Clinic cards */
+.clinic-card {
+    padding: 14px;
+    border-radius: 12px;
+    border: 2px solid transparent;
+    cursor: pointer;
+    transition: all 0.25s ease;
+    min-height: 118px;
+}
+
+.clinic-card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.12);
+}
+
+.clinic-card strong {
+    font-size: 1.1rem;
+    display: block;
+    margin-bottom: 8px;
+}
+
+/* Status colors */
+.state-empty   { 
+    background: #fee2e2; 
+    border-color: #ef4444; 
+}
+
+.state-partial { 
+    background: #fef3c7; 
+    border-color: #f59e0b; 
+}
+
+.state-full    { 
+    background: #dcfce7; 
+    border-color: #16a34a; 
+}
+
+/* Personal shift highlight */
+.my-shift {
+    border: 3px solid #2563eb !important;
+    box-shadow: 0 0 0 5px rgba(37, 99, 235, 0.25) !important;
+}
+
+/* Modal */
+.modal-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.75);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+}
+
+.modal {
+    background: white;
+    padding: 28px;
+    border-radius: 16px;
+    width: 92%;
+    max-width: 460px;
+    box-shadow: 0 15px 35px rgba(0, 0, 0, 0.3);
+}
+
+.modal h3 {
+    margin-bottom: 18px;
+    color: #1e3a8a;
+}
+
+.yes-no {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px;
+    margin: 24px 0 10px 0;
+}
+
+.yes-no button {
+    padding: 16px;
+    font-size: 1.15rem;
+    font-weight: 600;
+    border: none;
+    border-radius: 12px;
+    cursor: pointer;
+}
+
+.yes-btn { background: #16a34a; color: white; }
+.no-btn  { background: #ef4444; color: white; }
+
+/* Footer */
+footer {
+    margin-top: 50px;
+    padding: 20px 15px;
+    text-align: center;
+    font-size: 0.92rem;
+    color: var(--text-light);
+    background: #f1f5f9;
+    border-top: 1px solid #cbd5e1;
+    line-height: 1.6;
+}
+
+/* Mobile responsiveness */
+@media (max-width: 680px) {
+    .app {
+        padding: 10px;
+    }
+    
+    header h1 {
+        font-size: 1.65rem;
+    }
+    
+    .shifts {
+        grid-template-columns: 1fr;
+        gap: 12px;
+    }
+    
+    .clinic-card {
+        padding: 13px;
+        min-height: 110px;
+        font-size: 0.97rem;
+    }
+    
+    .day-header {
+        flex-direction: column;
+        gap: 6px;
+        text-align: center;
+        padding: 14px;
+    }
+    
+    .modal {
+        padding: 22px 20px;
+        width: 94%;
+    }
+    
+    .yes-no button {
+        padding: 15px;
+        font-size: 1.1rem;
+    }
+}
+
+/* Small improvements */
+select, button {
+    font-family: inherit;
+}
+
+button:active {
+    transform: scale(0.97);
+}
