@@ -1,147 +1,137 @@
 <?php
-// src/db.php
+// db.php - Database functions for pq2 Surgical Planning System
 
-function get_pdo(): PDO {
-    static $pdo = null;
-    if ($pdo !== null) return $pdo;
-    $config = require __DIR__ . '/config.php';
+function getPDO() {
+    $config = require 'config.php';
+    $dsn = "mysql:host={$config['db_host']};dbname={$config['db_name']};charset={$config['charset']}";
     try {
-        $dsn = sprintf('mysql:host=%s;dbname=%s;charset=%s', $config['db_host'], $config['db_name'], $config['charset']);
-        $pdo = new PDO($dsn, $config['db_user'], $config['db_pass'], [
+        return new PDO($dsn, $config['db_user'], $config['db_pass'], [
             PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
             PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
         ]);
-        return $pdo;
     } catch (PDOException $e) {
-        die("Error de conexión: " . $e->getMessage());
+        die("Connection error: " . $e->getMessage());
     }
 }
 
-function run_system_diagnostics(): array {
+function runSystemDiagnostics(): array {
     $errors = []; $info = []; $warnings = [];
     try {
-        $pdo = get_pdo();
+        $pdo = getPDO();
         $info[] = "PHP Version: " . PHP_VERSION;
-        $info[] = "Conexión BD: OK";
+        $info[] = "Database Connection: OK";
         
-        $colsC = $pdo->query("DESCRIBE clinicas")->fetchAll(PDO::FETCH_COLUMN);
-        if (!in_array('codigo', $colsC)) $warnings[] = "Usando 'nombre' como identificador de clínica.";
+        $colsClinics = $pdo->query("DESCRIBE clinics")->fetchAll(PDO::FETCH_COLUMN);
+        if (!in_array('name', $colsClinics)) $warnings[] = "Missing 'name' column in clinics table.";
         
-        $colsR = $pdo->query("DESCRIBE reservas")->fetchAll(PDO::FETCH_COLUMN);
-        if (!in_array('estado', $colsR)) $errors[] = "Falta columna 'estado' en 'reservas'.";
-    } catch (Exception $e) { $errors[] = $e->getMessage(); }
+        $colsReservations = $pdo->query("DESCRIBE reservations")->fetchAll(PDO::FETCH_COLUMN);
+        if (!in_array('status', $colsReservations)) $errors[] = "Missing 'status' column in reservations table.";
+    } catch (Exception $e) {
+        $errors[] = $e->getMessage();
+    }
     return ['errors' => $errors, 'info' => $info, 'warnings' => $warnings];
 }
 
-function normalizar_dia($dia) {
-    $map = ['Miércoles'=>'Miércoles','Miercoles'=>'Miércoles','MiÃ©rcoles'=>'Miércoles','Sábado'=>'Sábado','Sabado'=>'Sábado','SÃ¡bado'=>'Sábado'];
-    return $map[$dia] ?? $dia;
-}
-
-function fetch_all_turnos_with_reservas(): array {
-    $pdo = get_pdo();
-    
-    // Detectar columnas existentes para evitar errores 500
-    $colsClinica = $pdo->query("DESCRIBE clinicas")->fetchAll(PDO::FETCH_COLUMN);
-    $colClinica = in_array('codigo', $colsClinica) ? "c.codigo" : "c.nombre";
-    
-    $colsReservas = $pdo->query("DESCRIBE reservas")->fetchAll(PDO::FETCH_COLUMN);
-    $colEstado = in_array('estado', $colsReservas) ? "r.estado" : "'empty'";
-
-    $sql = "SELECT t.id AS turno_id, t.dia, t.franja, 
-                   c.id AS clinica_id, $colClinica AS clinica_label,
-                   r.id AS reserva_id, $colEstado AS estado,
-                   p.nombre AS profesional_nombre, p.tipo AS profesional_tipo
-            FROM turnos t
-            CROSS JOIN clinicas c
-            LEFT JOIN reservas r ON r.turno_id = t.id AND r.clinica_id = c.id
-            LEFT JOIN reserva_profesionales rp ON rp.reserva_id = r.id
-            LEFT JOIN profesionales p ON p.id = rp.profesional_id
-            ORDER BY FIELD(t.dia, 'Lunes','Martes','Miércoles','Jueves','Viernes','Sábado','Domingo'), t.franja, c.id";
+function fetchAllShiftsWithReservations(): array {
+    $pdo = getPDO();
+    $sql = "SELECT 
+            s.id AS shift_id, 
+            s.day, 
+            s.slot,
+            c.id AS clinic_id, 
+            c.name AS clinic_label,
+            r.id AS reservation_id, 
+            r.status,
+            p.name AS professional_name, 
+            p.role AS professional_role
+        FROM shifts s
+        CROSS JOIN clinics c
+        LEFT JOIN reservations r ON r.shift_id = s.id AND r.clinic_id = c.id
+        LEFT JOIN reservation_professionals rp ON rp.reservation_id = r.id
+        LEFT JOIN professionals p ON p.id = rp.professional_id
+        ORDER BY FIELD(s.day, 'monday','tuesday','wednesday','thursday','friday','saturday','sunday'), 
+                 FIELD(s.slot, 'morning','afternoon'), c.id";
 
     $rows = $pdo->query($sql)->fetchAll();
     $temp = [];
 
     foreach ($rows as $row) {
-        $dia = normalizar_dia($row['dia']);
-        $franja = $row['franja'];
-        $uid = $row['turno_id'] . '_' . $row['clinica_id'];
+        $day = $row['day'];
+        $slot = $row['slot'];
+        $uid = $row['shift_id'] . '_' . $row['clinic_id'];
 
-        if (!isset($temp[$dia][$franja][$uid])) {
-            $temp[$dia][$franja][$uid] = [
-                'turno_id' => $row['turno_id'],
-                'clinica_id' => $row['clinica_id'],
-                'clinica' => $row['clinica_label'],
-                'reserva_id' => $row['reserva_id'],
-                'estado' => $row['estado'],
-                'cirujanos' => [],
-                'anestesistas' => []
+        if (!isset($temp[$day][$slot][$uid])) {
+            $temp[$day][$slot][$uid] = [
+                'shift_id'     => $row['shift_id'],
+                'clinic_id'    => $row['clinic_id'],
+                'clinic'       => $row['clinic_label'],
+                'reservation_id' => $row['reservation_id'],
+                'status'       => $row['status'] ?? 'empty',
+                'surgeons'     => [],
+                'anesthetists' => []
             ];
         }
-        if ($row['profesional_nombre']) {
-            $key = ($row['profesional_tipo'] === 'cirujano') ? 'cirujanos' : 'anestesistas';
-            $temp[$dia][$franja][$uid][$key][] = $row['profesional_nombre'];
+        if ($row['professional_name']) {
+            $key = ($row['professional_role'] === 'surgeon') ? 'surgeons' : 'anesthetists';
+            $temp[$day][$slot][$uid][$key][] = $row['professional_name'];
         }
     }
 
     $final = [];
-    foreach ($temp as $d => $franjas) {
-        foreach ($franjas as $f => $slots) {
-            $final[$d][$f] = array_values($slots);
+    foreach ($temp as $d => $slots) {
+        foreach ($slots as $f => $data) {
+            $final[$d][$f] = array_values($data);
         }
     }
     return $final;
 }
 
-function get_profesionales_por_tipo($tipo) {
-    $stmt = get_pdo()->prepare("SELECT id, nombre FROM profesionales WHERE tipo = ? ORDER BY nombre");
-    $stmt->execute([$tipo]);
+function getProfessionalsByType(string $type): array {
+    $stmt = getPDO()->prepare("SELECT id, name FROM professionals WHERE role = ? ORDER BY name");
+    $stmt->execute([$type]);
     return $stmt->fetchAll();
 }
 
-function guardar_reserva($data) {
-    $pdo = get_pdo();
+function saveReservation(array $data): void {
+    $pdo = getPDO();
     $pdo->beginTransaction();
     try {
-        $stmt = $pdo->prepare("SELECT id FROM reservas WHERE turno_id = ? AND clinica_id = ?");
-        $stmt->execute([$data['turno_id'], $data['clinica_id']]);
-        $res = $stmt->fetch();
+        $stmt = $pdo->prepare("SELECT id FROM reservations WHERE shift_id = ? AND clinic_id = ?");
+        $stmt->execute([$data['shift_id'], $data['clinic_id']]);
+        $existing = $stmt->fetch();
 
-        $cols = $pdo->query("DESCRIBE reservas")->fetchAll(PDO::FETCH_COLUMN);
-        $hasEstado = in_array('estado', $cols);
-
-        if ($res) {
-            $reserva_id = $res['id'];
-            if ($hasEstado) {
-                $pdo->prepare("UPDATE reservas SET estado = ? WHERE id = ?")->execute([$data['estado'], $reserva_id]);
-            }
-            $pdo->prepare("DELETE FROM reserva_profesionales WHERE reserva_id = ?")->execute([$reserva_id]);
+        if ($existing) {
+            $reservationId = $existing['id'];
+            $pdo->prepare("UPDATE reservations SET status = ? WHERE id = ?")
+                ->execute([$data['status'], $reservationId]);
+            $pdo->prepare("DELETE FROM reservation_professionals WHERE reservation_id = ?")->execute([$reservationId]);
         } else {
-            if ($hasEstado) {
-                $pdo->prepare("INSERT INTO reservas (turno_id, clinica_id, estado) VALUES (?, ?, ?)")
-                    ->execute([$data['turno_id'], $data['clinica_id'], $data['estado']]);
-            } else {
-                $pdo->prepare("INSERT INTO reservas (turno_id, clinica_id) VALUES (?, ?)")
-                    ->execute([$data['turno_id'], $data['clinica_id']]);
-            }
-            $reserva_id = $pdo->lastInsertId();
+            $pdo->prepare("INSERT INTO reservations (shift_id, clinic_id, status) VALUES (?, ?, ?)")
+                ->execute([$data['shift_id'], $data['clinic_id'], $data['status']]);
+            $reservationId = $pdo->lastInsertId();
         }
 
-        $ins = $pdo->prepare("INSERT INTO reserva_profesionales (reserva_id, profesional_id) VALUES (?, ?)");
-        $pids = array_unique(array_merge((array)($data['cirujanos']??[]), (array)($data['anestesistas']??[])));
-        foreach ($pids as $pid) {
-            if (!empty($pid)) $ins->execute([$reserva_id, $pid]);
+        $insert = $pdo->prepare("INSERT INTO reservation_professionals (reservation_id, professional_id) VALUES (?, ?)");
+        $professionalIds = array_unique(array_merge(
+            (array)($data['surgeons'] ?? []),
+            (array)($data['anesthetists'] ?? [])
+        ));
+        foreach ($professionalIds as $pid) {
+            if (!empty($pid)) $insert->execute([$reservationId, $pid]);
         }
         $pdo->commit();
-    } catch (Exception $e) { $pdo->rollBack(); throw $e; }
+    } catch (Exception $e) {
+        $pdo->rollBack();
+        throw $e;
+    }
 }
 
-function eliminar_reserva($id) {
-    $pdo = get_pdo();
+function deleteReservation(int $id): void {
+    $pdo = getPDO();
     $pdo->beginTransaction();
     try {
-        $pdo->prepare("DELETE FROM reserva_profesionales WHERE reserva_id = ?")->execute([$id]);
-        $pdo->prepare("DELETE FROM reservas WHERE id = ?")->execute([$id]);
+        $pdo->prepare("DELETE FROM reservation_professionals WHERE reservation_id = ?")->execute([$id]);
+        $pdo->prepare("DELETE FROM reservations WHERE id = ?")->execute([$id]);
         $pdo->commit();
     } catch (Exception $e) {
         $pdo->rollBack();

@@ -1,5 +1,5 @@
 <?php
-// config.php
+// config.php - Configuration for pq2 Surgical Planning System
 return [
     'db_host' => 'localhost',
     'db_name' => 'pq2',
