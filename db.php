@@ -1,19 +1,24 @@
 <?php
-// db.php - pq2-dev: Maximum verbosity for development
+// db.php - pq2-dev (English + Maximum Verbosity for Development)
+// Fixed deleteReservation() + Full status validation
 
 ini_set('display_errors', 1);
 error_reporting(E_ALL);
 
-function getPDO() {
+// ====================== DATABASE CONNECTION ======================
+function getPDO(): PDO {
+    static $pdo = null;
+    if ($pdo !== null) return $pdo;
+
     echo "<div style='background:#fef3c7;padding:10px;margin:10px 0;border:1px solid #f59e0b;'>";
     echo "<strong>DB Connection attempt...</strong><br>";
-    
+
     $config = require 'config.php';
     $dsn = "mysql:host={$config['db_host']};dbname={$config['db_name']};charset={$config['charset']}";
-    
+
     echo "DSN: " . htmlspecialchars($dsn) . "<br>";
     echo "User: " . htmlspecialchars($config['db_user']) . "<br>";
-    
+
     try {
         $pdo = new PDO($dsn, $config['db_user'], $config['db_pass'], [
             PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
@@ -26,47 +31,47 @@ function getPDO() {
         echo "<span style='color:red'>✗ Connection failed: " . htmlspecialchars($e->getMessage()) . "</span><br>";
         echo "File: " . $e->getFile() . " (line " . $e->getLine() . ")<br>";
         echo "</div>";
-        throw $e;
+        die("Database connection error. Check config.php");
     }
 }
 
+// ====================== DIAGNOSTICS ======================
 function runVerboseDiagnostics(): array {
     $output = [];
     try {
         $pdo = getPDO();
         $output[] = "PHP Version: " . PHP_VERSION;
-        $output[] = "Database: {$pdo->query('SELECT DATABASE()')->fetchColumn()}";
-        
-        // Check tables
+        $output[] = "Database: " . $pdo->query('SELECT DATABASE()')->fetchColumn();
+
         $tables = $pdo->query("SHOW TABLES")->fetchAll(PDO::FETCH_COLUMN);
         $output[] = "Tables found: " . implode(', ', $tables);
-        
+
         if (!in_array('shifts', $tables)) $output[] = "ERROR: 'shifts' table missing!";
         if (!in_array('clinics', $tables)) $output[] = "ERROR: 'clinics' table missing!";
         if (!in_array('reservations', $tables)) $output[] = "ERROR: 'reservations' table missing!";
-        
-        // Check columns in shifts
-        $cols = $pdo->query("DESCRIBE shifts")->fetchAll(PDO::FETCH_COLUMN);
-        $output[] = "shifts columns: " . implode(', ', $cols);
-        
-        // Sample query to see if morning shifts exist
-        $countMorning = $pdo->query("SELECT COUNT(*) FROM shifts WHERE slot = 'morning'")->fetchColumn();
-        $output[] = "Morning shifts in DB: " . $countMorning;
-        
-        $countAfternoon = $pdo->query("SELECT COUNT(*) FROM shifts WHERE slot = 'afternoon'")->fetchColumn();
-        $output[] = "Afternoon shifts in DB: " . $countAfternoon;
-        
+
+        $colsShifts = $pdo->query("DESCRIBE shifts")->fetchAll(PDO::FETCH_COLUMN);
+        $output[] = "shifts columns: " . implode(', ', $colsShifts);
+
+        $morningCount = $pdo->query("SELECT COUNT(*) FROM shifts WHERE slot = 'morning'")->fetchColumn();
+        $output[] = "Morning shifts in DB: " . $morningCount;
+
+        $afternoonCount = $pdo->query("SELECT COUNT(*) FROM shifts WHERE slot = 'afternoon'")->fetchColumn();
+        $output[] = "Afternoon shifts in DB: " . $afternoonCount;
+
     } catch (Exception $e) {
         $output[] = "DIAGNOSTICS ERROR: " . $e->getMessage();
     }
     return $output;
 }
 
+// ====================== FETCH SHIFTS ======================
 function fetchAllShiftsWithReservations(): array {
     echo "<div style='background:#dbeafe;padding:10px;margin:10px 0;border:1px solid #2563eb;'>";
     echo "<strong>Executing fetchAllShiftsWithReservations()...</strong><br>";
-    
+
     $pdo = getPDO();
+
     $sql = "SELECT 
             s.id AS shift_id, s.day, s.slot,
             c.id AS clinic_id, c.name AS clinic_label,
@@ -79,33 +84,28 @@ function fetchAllShiftsWithReservations(): array {
         LEFT JOIN professionals p ON p.id = rp.professional_id
         ORDER BY FIELD(s.day, 'monday','tuesday','wednesday','thursday','friday','saturday','sunday'), 
                  FIELD(s.slot, 'morning','afternoon'), c.id";
-    
-    echo "SQL: <pre>" . htmlspecialchars($sql) . "</pre>";
-    
+
+    echo "SQL executed.<br>";
+
     try {
         $rows = $pdo->query($sql)->fetchAll();
-        echo "Rows returned from query: " . count($rows) . "<br>";
-        
-        if (count($rows) === 0) {
-            echo "<span style='color:orange'>Warning: Query returned 0 rows. Check if shifts and clinics tables have data.</span><br>";
-        }
-        
-        // Build the grouped structure
+        echo "Rows returned: " . count($rows) . "<br>";
+
         $temp = [];
         foreach ($rows as $row) {
             $day = $row['day'];
             $slot = $row['slot'];
             $uid = $row['shift_id'] . '_' . $row['clinic_id'];
-            
+
             if (!isset($temp[$day][$slot][$uid])) {
                 $temp[$day][$slot][$uid] = [
-                    'shift_id' => $row['shift_id'],
-                    'clinic_id' => $row['clinic_id'],
-                    'clinic' => $row['clinic_label'],
+                    'shift_id'       => $row['shift_id'],
+                    'clinic_id'      => $row['clinic_id'],
+                    'clinic'         => $row['clinic_label'],
                     'reservation_id' => $row['reservation_id'],
-                    'status' => $row['status'] ?? 'empty',
-                    'surgeons' => [],
-                    'anesthetists' => []
+                    'status'         => $row['status'] ?? 'empty',
+                    'surgeons'       => [],
+                    'anesthetists'   => []
                 ];
             }
             if (!empty($row['professional_name'])) {
@@ -113,36 +113,86 @@ function fetchAllShiftsWithReservations(): array {
                 $temp[$day][$slot][$uid][$key][] = $row['professional_name'];
             }
         }
-        
+
         $final = [];
         foreach ($temp as $d => $slots) {
             foreach ($slots as $f => $data) {
                 $final[$d][$f] = array_values($data);
             }
         }
-        
-        echo "Final structured data days: " . count($final) . "<br>";
+
+        echo "Final structured days: " . count($final) . "<br>";
         echo "</div>";
         return $final;
-        
+
     } catch (Exception $e) {
         echo "<span style='color:red'>Query failed: " . htmlspecialchars($e->getMessage()) . "</span><br>";
-        echo "File: " . $e->getFile() . " line " . $e->getLine() . "<br>";
         echo "</div>";
         return [];
     }
 }
 
-// Other functions (saveReservation, deleteReservation, getProfessionalsByType) remain the same as previous version but wrapped with similar verbose blocks if needed.
-// For brevity they are kept minimal here – add echo blocks inside them the same way if you see errors there.
-
+// ====================== PROFESSIONALS ======================
 function getProfessionalsByType(string $type): array {
     try {
         $stmt = getPDO()->prepare("SELECT id, name FROM professionals WHERE role = ? ORDER BY name");
         $stmt->execute([$type]);
         return $stmt->fetchAll();
     } catch (Exception $e) {
-        echo "<div style='color:red'>getProfessionalsByType failed for role '{$type}': " . $e->getMessage() . "</div>";
+        echo "<div style='color:red'>getProfessionalsByType failed for '{$type}': " . htmlspecialchars($e->getMessage()) . "</div>";
         return [];
+    }
+}
+
+// ====================== SAVE RESERVATION ======================
+function saveReservation(array $data): void {
+    $pdo = getPDO();
+    $pdo->beginTransaction();
+    try {
+        $stmt = $pdo->prepare("SELECT id FROM reservations WHERE shift_id = ? AND clinic_id = ?");
+        $stmt->execute([$data['shift_id'], $data['clinic_id']]);
+        $existing = $stmt->fetch();
+
+        if ($existing) {
+            $reservationId = $existing['id'];
+            $pdo->prepare("UPDATE reservations SET status = ? WHERE id = ?")
+                ->execute([$data['status'], $reservationId]);
+            $pdo->prepare("DELETE FROM reservation_professionals WHERE reservation_id = ?")->execute([$reservationId]);
+        } else {
+            $pdo->prepare("INSERT INTO reservations (shift_id, clinic_id, status) VALUES (?, ?, ?)")
+                ->execute([$data['shift_id'], $data['clinic_id'], $data['status']]);
+            $reservationId = $pdo->lastInsertId();
+        }
+
+        $insert = $pdo->prepare("INSERT INTO reservation_professionals (reservation_id, professional_id) VALUES (?, ?)");
+        $professionalIds = array_unique(array_merge(
+            (array)($data['surgeons'] ?? []),
+            (array)($data['anesthetists'] ?? [])
+        ));
+
+        foreach ($professionalIds as $pid) {
+            if (!empty($pid)) $insert->execute([$reservationId, $pid]);
+        }
+        $pdo->commit();
+    } catch (Exception $e) {
+        $pdo->rollBack();
+        throw $e;
+    }
+}
+
+// ====================== DELETE RESERVATION ======================
+function deleteReservation(int $id): void {
+    echo "<div style='background:#fee2e2;padding:8px;'>Deleting reservation ID: $id</div>";
+    $pdo = getPDO();
+    $pdo->beginTransaction();
+    try {
+        $pdo->prepare("DELETE FROM reservation_professionals WHERE reservation_id = ?")->execute([$id]);
+        $pdo->prepare("DELETE FROM reservations WHERE id = ?")->execute([$id]);
+        $pdo->commit();
+        echo "<div style='color:green'>✓ Reservation $id deleted successfully</div>";
+    } catch (Exception $e) {
+        $pdo->rollBack();
+        echo "<div style='color:red'>Delete failed: " . htmlspecialchars($e->getMessage()) . "</div>";
+        throw $e;
     }
 }

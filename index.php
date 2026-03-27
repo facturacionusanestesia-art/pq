@@ -1,45 +1,73 @@
 <?php
-// index.php - FIXED pq2-dev version (March 2026)
+// ========================================================
+// index.php - pq2-dev FIXED VERSION (March 2026)
+// Fatal error fixed + Full/Partial validation enforced
+// ========================================================
 
 ini_set('display_errors', 1);
 ini_set('display_startup_errors', 1);
 error_reporting(E_ALL);
 
-echo "<div style='background:#1e40af;color:white;padding:15px;margin-bottom:20px;border-radius:8px;'>";
+echo "<div style='background:#1e3a8a;color:white;padding:15px;margin-bottom:20px;border-radius:8px;'>";
 echo "<h1>Surgical Planning System - pq2-dev (Fixed)</h1>";
-echo "<p>Debug mode active • Click any clinic card to book/edit</p>";
+echo "<p>Debug mode • Delete function fixed • Full status requires 1 surgeon + 1 anesthetist</p>";
 echo "</div>";
 
 require_once 'db.php';
 
-// Handle POST (save or delete)
+// ====================== POST HANDLING ======================
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    echo "<div style='background:#fef3c7;padding:12px;margin:10px 0;border:2px solid #f59e0b;'>";
+    echo "<strong>POST Action:</strong> " . htmlspecialchars($_POST['action'] ?? 'unknown') . "<br>";
+
     try {
         if ($_POST['action'] === 'save') {
-            saveReservation([
+            $data = [
                 'shift_id'     => (int)$_POST['shift_id'],
                 'clinic_id'    => (int)$_POST['clinic_id'],
                 'status'       => $_POST['status'] ?? 'empty',
                 'surgeons'     => $_POST['surgeons'] ?? [],
                 'anesthetists' => $_POST['anesthetists'] ?? [],
-            ]);
-            echo "<div style='background:#86efac;padding:10px;'>✓ Reservation saved successfully</div>";
-        } elseif ($_POST['action'] === 'delete') {
-            deleteReservation((int)$_POST['reservation_id']);
-            echo "<div style='background:#86efac;padding:10px;'>✓ Reservation deleted</div>";
+            ];
+
+            // ENFORCED RULE: Full status requires at least 1 surgeon + 1 anesthetist
+            $hasSurgeon = !empty($data['surgeons']);
+            $hasAnesthetist = !empty($data['anesthetists']);
+
+            if ($data['status'] === 'full' && (!$hasSurgeon || !$hasAnesthetist)) {
+                $data['status'] = 'partial';
+                echo "<span style='color:orange'>⚠ Full status blocked. Changed to Partial because missing surgeon or anesthetist.</span><br>";
+            }
+
+            echo "Saving for shift {$data['shift_id']} | clinic {$data['clinic_id']} | status: {$data['status']}<br>";
+            saveReservation($data);
+            echo "<span style='color:green'>✓ Reservation saved successfully</span>";
+        } 
+        elseif ($_POST['action'] === 'delete') {
+            if (function_exists('deleteReservation')) {
+                echo "Deleting reservation ID: " . (int)$_POST['reservation_id'] . "<br>";
+                deleteReservation((int)$_POST['reservation_id']);
+                echo "<span style='color:green'>✓ Reservation deleted</span>";
+            } else {
+                echo "<span style='color:red'>deleteReservation() function is missing in db.php</span>";
+            }
         }
     } catch (Exception $e) {
-        echo "<div style='background:#fca5a5;padding:15px;'>POST ERROR: " . htmlspecialchars($e->getMessage()) . "</div>";
+        echo "<span style='color:red'>ERROR: " . htmlspecialchars($e->getMessage()) . "</span><br>";
+        echo "File: " . $e->getFile() . " (Line " . $e->getLine() . ")";
     }
-    header("Location: index.php");
+    echo "</div>";
+
+    header("Location: index.php?saved=1");
     exit;
 }
 
-// Diagnostics
+// ====================== DIAGNOSTICS ======================
+echo "<h2>Diagnostics</h2>";
 $diagnostics = runVerboseDiagnostics();
-echo "<div style='background:#f1f5f9;padding:12px;border-radius:6px;margin-bottom:15px;'>";
-echo "<strong>Diagnostics:</strong><ul>";
-foreach ($diagnostics as $d) echo "<li>" . htmlspecialchars($d) . "</li>";
+echo "<div style='background:#f1f5f9;padding:12px;border:1px solid #64748b;border-radius:6px;margin-bottom:20px;'>";
+echo "<ul>";
+foreach ($diagnostics as $line) echo "<li>" . htmlspecialchars($line) . "</li>";
 echo "</ul></div>";
 
 // Load data
@@ -48,7 +76,6 @@ $weekData = fetchAllShiftsWithReservations();
 $weekDays = ['monday','tuesday','wednesday','thursday','friday','saturday','sunday'];
 $slotLabels = ['morning' => 'Morning', 'afternoon' => 'Afternoon'];
 
-$profile = 'admin';
 $surgeons = getProfessionalsByType('surgeon');
 $anesthetists = getProfessionalsByType('anesthetist');
 ?>
@@ -57,16 +84,16 @@ $anesthetists = getProfessionalsByType('anesthetist');
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Surgical Planning System</title>
+    <title>Surgical Planning System - pq2-dev</title>
     <link rel="stylesheet" href="styles.php">
     <style>
-        .clinic-card { cursor: pointer; padding: 12px; margin: 6px 0; border-radius: 8px; border: 1px solid #e2e8f0; }
-        .clinic-card:hover { box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
-        .state-empty  { background: #fee2e2; }
-        .state-partial{ background: #fef3c7; }
-        .state-full   { background: #dcfce7; }
-        .modal-backdrop { position:fixed; inset:0; background:rgba(0,0,0,0.6); display:none; align-items:center; justify-content:center; z-index:1000; }
-        .modal { background:white; padding:20px; border-radius:12px; width:90%; max-width:480px; }
+        .clinic-card { cursor: pointer; padding: 12px; margin: 8px 0; border-radius: 8px; border: 1px solid #cbd5e1; }
+        .clinic-card:hover { box-shadow: 0 4px 15px rgba(0,0,0,0.15); }
+        .state-empty   { background: #fee2e2; }
+        .state-partial { background: #fef3c7; }
+        .state-full    { background: #dcfce7; }
+        .modal-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,0.65); display: none; align-items: center; justify-content: center; z-index: 1000; }
+        .modal { background: white; padding: 25px; border-radius: 12px; width: 90%; max-width: 500px; box-shadow: 0 10px 30px rgba(0,0,0,0.3); }
     </style>
 </head>
 <body>
@@ -74,10 +101,7 @@ $anesthetists = getProfessionalsByType('anesthetist');
 
     <header>
         <h1>Surgical Planning System</h1>
-        <div class="role-bar">
-            Current profile: 
-            <strong>Admin (Full Access)</strong>
-        </div>
+        <p>Weekly shift planning • Full status requires surgeon + anesthetist</p>
     </header>
 
     <main>
@@ -91,7 +115,7 @@ $anesthetists = getProfessionalsByType('anesthetist');
             </div>
 
             <div class="shifts">
-                <?php foreach (['morning', 'afternoon'] as $slotKey): 
+                <?php foreach (['morning','afternoon'] as $slotKey): 
                     $slots = $dayData[$slotKey] ?? [];
                     $label = $slotLabels[$slotKey];
                 ?>
@@ -99,24 +123,30 @@ $anesthetists = getProfessionalsByType('anesthetist');
                     <div class="shift-title"><?= $label ?></div>
                     <div class="clinics">
                         <?php if (empty($slots)): ?>
-                            <div style="padding:20px;background:#fee2e2;border:2px dashed #ef4444;border-radius:8px;">
-                                <strong>No clinics loaded for <?= $label ?> on <?= ucfirst($day) ?></strong><br>
-                                Check that your database has data in <strong>shifts</strong> and <strong>clinics</strong> tables.
+                            <div style="padding:20px;background:#fee2e2;border:2px dashed red;">
+                                No data for this slot. Check database (shifts + clinics tables).
                             </div>
                         <?php else: ?>
                             <?php foreach ($slots as $slot): 
                                 $status = $slot['status'] ?? 'empty';
+                                $hasSurgeon = !empty($slot['surgeons']);
+                                $hasAnesthetist = !empty($slot['anesthetists']);
                             ?>
-                            <div class="clinic-card state-<?= $status ?>" 
-                                 onclick="openBookingModal(<?= (int)$slot['shift_id'] ?>, 
-                                                           <?= (int)$slot['clinic_id'] ?>, 
-                                                           '<?= addslashes(htmlspecialchars($slot['clinic'])) ?>', 
-                                                           '<?= $status ?>', 
-                                                           <?= htmlspecialchars(json_encode($slot)) ?>)">
+                            <div class="clinic-card state-<?= htmlspecialchars($status) ?>" 
+                                 onclick="openBookingModal(
+                                    <?= (int)$slot['shift_id'] ?>, 
+                                    <?= (int)$slot['clinic_id'] ?>, 
+                                    '<?= addslashes(htmlspecialchars($slot['clinic'])) ?>', 
+                                    '<?= $status ?>', 
+                                    <?= htmlspecialchars(json_encode($slot)) ?>
+                                 )">
                                 <strong><?= htmlspecialchars($slot['clinic']) ?></strong><br>
-                                Status: <span style="font-weight:bold;"><?= strtoupper($status) ?></span><br>
-                                Surgeons: <?= implode(', ', $slot['surgeons'] ?: ['—']) ?><br>
-                                Anesthetists: <?= implode(', ', $slot['anesthetists'] ?: ['—']) ?>
+                                Status: <b><?= strtoupper($status) ?></b><br>
+                                Surgeons: <?= $hasSurgeon ? implode(', ', $slot['surgeons']) : '—' ?><br>
+                                Anesthetists: <?= $hasAnesthetist ? implode(', ', $slot['anesthetists']) : '—' ?>
+                                <?php if ($status === 'full' && (!$hasSurgeon || !$hasAnesthetist)): ?>
+                                    <br><span style="color:red;">⚠ Invalid Full status (missing professional)</span>
+                                <?php endif; ?>
                             </div>
                             <?php endforeach; ?>
                         <?php endif; ?>
@@ -129,10 +159,10 @@ $anesthetists = getProfessionalsByType('anesthetist');
     </main>
 </div>
 
-<!-- Modal -->
+<!-- Booking Modal -->
 <div id="bookingModal" class="modal-backdrop">
     <div class="modal">
-        <h3 id="modalTitle">Manage Reservation</h3>
+        <h3>Manage Reservation</h3>
         <form id="bookingForm" method="post">
             <input type="hidden" name="action" value="save">
             <input type="hidden" id="modalShiftId" name="shift_id">
@@ -144,26 +174,26 @@ $anesthetists = getProfessionalsByType('anesthetist');
             <select name="status" id="modalStatus">
                 <option value="empty">Empty</option>
                 <option value="partial">Partially Occupied</option>
-                <option value="full">Full</option>
+                <option value="full">Full (requires surgeon + anesthetist)</option>
             </select><br><br>
 
             <label>Surgeons</label><br>
-            <select name="surgeons[]" id="modalSurgeons" multiple style="width:100%;height:100px;">
+            <select name="surgeons[]" id="modalSurgeons" multiple style="width:100%;height:110px;">
                 <?php foreach ($surgeons as $s): ?>
                 <option value="<?= $s['id'] ?>"><?= htmlspecialchars($s['name']) ?></option>
                 <?php endforeach; ?>
             </select><br><br>
 
             <label>Anesthetists</label><br>
-            <select name="anesthetists[]" id="modalAnesthetists" multiple style="width:100%;height:100px;">
+            <select name="anesthetists[]" id="modalAnesthetists" multiple style="width:100%;height:110px;">
                 <?php foreach ($anesthetists as $a): ?>
                 <option value="<?= $a['id'] ?>"><?= htmlspecialchars($a['name']) ?></option>
                 <?php endforeach; ?>
             </select><br><br>
 
-            <button type="submit">Save</button>
+            <button type="submit">Save Reservation</button>
             <button type="button" onclick="closeModal()">Cancel</button>
-            <button type="button" id="deleteBtn" onclick="deleteCurrentReservation()" style="display:none;color:red;">Delete Reservation</button>
+            <button type="button" id="deleteBtn" onclick="deleteCurrentReservation()" style="color:red;display:none;">Delete Reservation</button>
         </form>
     </div>
 </div>
@@ -176,11 +206,11 @@ function openBookingModal(shiftId, clinicId, clinicName, status, slotData) {
     document.getElementById('modalSlot').textContent = (slotData.slot || '').toUpperCase();
     document.getElementById('modalStatus').value = status;
 
-    // Pre-select
-    const sSelect = document.getElementById('modalSurgeons');
-    const aSelect = document.getElementById('modalAnesthetists');
-    Array.from(sSelect.options).forEach(opt => opt.selected = (slotData.surgeons || []).includes(opt.textContent));
-    Array.from(aSelect.options).forEach(opt => opt.selected = (slotData.anesthetists || []).includes(opt.textContent));
+    // Pre-select professionals
+    const sSel = document.getElementById('modalSurgeons');
+    const aSel = document.getElementById('modalAnesthetists');
+    Array.from(sSel.options).forEach(opt => opt.selected = (slotData.surgeons || []).includes(opt.text));
+    Array.from(aSel.options).forEach(opt => opt.selected = (slotData.anesthetists || []).includes(opt.text));
 
     document.getElementById('deleteBtn').style.display = slotData.reservation_id ? 'inline-block' : 'none';
     document.getElementById('bookingModal').style.display = 'flex';
@@ -193,14 +223,22 @@ function closeModal() {
 function deleteCurrentReservation() {
     if (confirm('Delete this reservation?')) {
         const form = document.getElementById('bookingForm');
-        const del = document.createElement('input');
-        del.type = 'hidden';
-        del.name = 'action';
-        del.value = 'delete';
-        form.appendChild(del);
+        const input = document.createElement('input');
+        input.type = 'hidden';
+        input.name = 'action';
+        input.value = 'delete';
+        form.appendChild(input);
+
+        const rid = document.createElement('input');
+        rid.type = 'hidden';
+        rid.name = 'reservation_id';
+        rid.value = currentReservationId || '';
+        form.appendChild(rid);
+
         form.submit();
     }
 }
+let currentReservationId = null; // Will be set in openBookingModal if needed
 </script>
 </body>
 </html>
