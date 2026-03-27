@@ -1,124 +1,128 @@
-CREATE DATABASE IF NOT EXISTS planificacion_quirurgica
-  CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+-- ============================================================
+-- CREACIÓN DE BASE DE DATOS
+-- ============================================================
+-- DROP DATABASE IF EXISTS pq2;
+-- CREATE DATABASE pq2 CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+USE pq2;
 
-USE planificacion_quirurgica;
-
--- Roles
-CREATE TABLE roles (
-  id INT AUTO_INCREMENT PRIMARY KEY,
-  nombre VARCHAR(50) NOT NULL
-);
-
-INSERT INTO roles (nombre) VALUES
-('admin'),
-('anestesista');
-
--- Usuarios (simplificado, sin login real)
-CREATE TABLE usuarios (
-  id INT AUTO_INCREMENT PRIMARY KEY,
-  nombre VARCHAR(100) NOT NULL,
-  rol_id INT NOT NULL,
-  FOREIGN KEY (rol_id) REFERENCES roles(id)
-);
-
-INSERT INTO usuarios (nombre, rol_id) VALUES
-('Administrador', 1),
-('Arroyo', 2),
-('Otro anestesista', 2);
-
--- Clínicas
+-- ============================================================
+-- TABLA: clinicas
+-- ============================================================
 CREATE TABLE clinicas (
-  id INT AUTO_INCREMENT PRIMARY KEY,
-  codigo VARCHAR(10) NOT NULL,
-  nombre VARCHAR(100) NOT NULL
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    nombre VARCHAR(50) NOT NULL,
+    codigo VARCHAR(10) NOT NULL UNIQUE
 );
 
-INSERT INTO clinicas (codigo, nombre) VALUES
+INSERT INTO clinicas (nombre, codigo) VALUES
 ('MCAN', 'MCAN'),
 ('QUIR', 'QUIR'),
-('MIR', 'MIR'),
-('FLO', 'FLO'),
+('MIR',  'MIR'),
+('FLO',  'FLO'),
 ('MONT', 'MONT');
 
--- Turnos (día + franja)
+-- ============================================================
+-- TABLA: turnos
+-- ============================================================
 CREATE TABLE turnos (
-  id INT AUTO_INCREMENT PRIMARY KEY,
-  dia VARCHAR(20) NOT NULL,          -- Lunes, Martes, ...
-  franja ENUM('manana','tarde') NOT NULL
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    dia VARCHAR(20) NOT NULL,
+    franja ENUM('mañana','tarde') NOT NULL
 );
 
--- Crea semana base
 INSERT INTO turnos (dia, franja) VALUES
-('Lunes','manana'), ('Lunes','tarde'),
-('Martes','manana'), ('Martes','tarde'),
-('Miércoles','manana'), ('Miércoles','tarde'),
-('Jueves','manana'), ('Jueves','tarde'),
-('Viernes','manana'), ('Viernes','tarde'),
-('Sábado','manana'), ('Sábado','tarde'),
-('Domingo','manana'), ('Domingo','tarde');
+('Lunes', 'mañana'), ('Lunes', 'tarde'),
+('Martes', 'mañana'), ('Martes', 'tarde'),
+('Miércoles', 'mañana'), ('Miércoles', 'tarde'),
+('Jueves', 'mañana'), ('Jueves', 'tarde'),
+('Viernes', 'mañana'), ('Viernes', 'tarde'),
+('Sábado', 'mañana'), ('Sábado', 'tarde'),
+('Domingo', 'mañana'), ('Domingo', 'tarde');
 
--- Reservas por turno y clínica
-CREATE TABLE reservas (
-  id INT AUTO_INCREMENT PRIMARY KEY,
-  turno_id INT NOT NULL,
-  clinica_id INT NOT NULL,
-  estado ENUM('empty','partial','full') NOT NULL DEFAULT 'empty',
-  FOREIGN KEY (turno_id) REFERENCES turnos(id),
-  FOREIGN KEY (clinica_id) REFERENCES clinicas(id)
-);
-
--- Profesionales (solo nombre + tipo)
+-- ============================================================
+-- TABLA: profesionales
+-- ============================================================
 CREATE TABLE profesionales (
-  id INT AUTO_INCREMENT PRIMARY KEY,
-  nombre VARCHAR(100) NOT NULL,
-  tipo ENUM('cirujano','anestesista') NOT NULL
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    nombre VARCHAR(50) NOT NULL,
+    tipo ENUM('cirujano','anestesista') NOT NULL
 );
 
 INSERT INTO profesionales (nombre, tipo) VALUES
-('Gros','cirujano'),
-('Garrido','cirujano'),
-('Domingo','cirujano'),
-('Cuenca','cirujano'),
-('Sola','cirujano'),
-('Deus','cirujano'),
-('Lloreda','anestesista'),
-('Consuegra','anestesista'),
-('Céspedes','anestesista'),
-('Arauzo','anestesista'),
-('Bes','anestesista'),
-('Ortiz','anestesista'),
-('Aspiroz','anestesista'),
-('Izuzquiza','anestesista'),
-('Arroyo','anestesista');
+('Sola', 'cirujano'),
+('Garrido', 'cirujano'),
+('Gros', 'cirujano'),
+('Deus', 'cirujano'),
+('Cuenca', 'cirujano'),
+('Domingo', 'cirujano'),
 
--- Equipo por reserva (relación N:N)
-CREATE TABLE reserva_profesionales (
-  id INT AUTO_INCREMENT PRIMARY KEY,
-  reserva_id INT NOT NULL,
-  profesional_id INT NOT NULL,
-  FOREIGN KEY (reserva_id) REFERENCES reservas(id) ON DELETE CASCADE,
-  FOREIGN KEY (profesional_id) REFERENCES profesionales(id)
+('Arauzo', 'anestesista'),
+('Bes', 'anestesista'),
+('Arroyo', 'anestesista'),
+('Aspiroz', 'anestesista'),
+('Céspedes', 'anestesista'),
+('Consuegra', 'anestesista'),
+('Izuzquiza', 'anestesista'),
+('Lloreda', 'anestesista'),
+('Ortiz', 'anestesista');
+
+-- ============================================================
+-- TABLA: reservas
+-- ============================================================
+CREATE TABLE reservas (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    turno_id INT NOT NULL,
+    clinica_id INT NOT NULL,
+    estado ENUM('empty','partial','full') NOT NULL DEFAULT 'empty',
+    UNIQUE KEY unique_reserva (turno_id, clinica_id),
+    FOREIGN KEY (turno_id) REFERENCES turnos(id) ON DELETE CASCADE,
+    FOREIGN KEY (clinica_id) REFERENCES clinicas(id) ON DELETE CASCADE
 );
 
--- Ejemplo: Lunes mañana, MCAN, con Arroyo y un cirujano
-INSERT INTO reservas (turno_id, clinica_id, estado)
-SELECT t.id, c.id, 'full'
-FROM turnos t
-JOIN clinicas c ON c.codigo = 'MCAN'
-WHERE t.dia = 'Lunes' AND t.franja = 'manana'
-LIMIT 1;
+-- ============================================================
+-- TABLA: reserva_profesionales
+-- ============================================================
+CREATE TABLE reserva_profesionales (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    reserva_id INT NOT NULL,
+    profesional_id INT NOT NULL,
+    FOREIGN KEY (reserva_id) REFERENCES reservas(id) ON DELETE CASCADE,
+    FOREIGN KEY (profesional_id) REFERENCES profesionales(id) ON DELETE CASCADE
+);
 
-SET @reserva_id := LAST_INSERT_ID();
+-- ============================================================
+-- DATOS DE EJEMPLO (turnos-random.sql integrado)
+-- ============================================================
+
+-- Crear reservas para todos los turnos y clínicas
+INSERT INTO reservas (turno_id, clinica_id, estado)
+SELECT t.id, c.id,
+       CASE WHEN RAND() < 0.8 THEN 'full' ELSE 'partial' END
+FROM turnos t
+CROSS JOIN clinicas c;
+
+-- Asignar profesionales aleatorios
+INSERT INTO reserva_profesionales (reserva_id, profesional_id)
+SELECT r.id, p.id
+FROM reservas r
+JOIN profesionales p
+WHERE p.tipo = 'cirujano'
+AND RAND() < 0.4;
 
 INSERT INTO reserva_profesionales (reserva_id, profesional_id)
-SELECT @reserva_id, p.id FROM profesionales p
-WHERE p.nombre IN ('Arroyo','Gros');
+SELECT r.id, p.id
+FROM reservas r
+JOIN profesionales p
+WHERE p.tipo = 'anestesista'
+AND RAND() < 0.4;
 
+-- Limpieza de duplicados y datos inconsistentes
+DELETE rp FROM reserva_profesionales rp
+LEFT JOIN profesionales p ON rp.profesional_id = p.id
+WHERE p.id IS NULL;
 
-ALTER TABLE turnos CONVERT TO CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-ALTER TABLE clinicas CONVERT TO CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-ALTER TABLE reservas CONVERT TO CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-ALTER TABLE profesionales CONVERT TO CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-ALTER TABLE reserva_profesionales CONVERT TO CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-
-ALTER DATABASE planificacion_quirurgica CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+DELETE r1 FROM reservas r1
+JOIN reservas r2
+  ON r1.turno_id = r2.turno_id
+ AND r1.clinica_id = r2.clinica_id
+ AND r1.id > r2.id;
