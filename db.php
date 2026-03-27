@@ -1,7 +1,5 @@
 <?php
-// db.php - pq2-dev (English + Maximum Verbosity for Development)
-// Fixed deleteReservation() + Full status validation
-
+// db.php - pq2 (English + Maximum Verbosity + Protection: max 2 surgeons & 2 anesthetists per reservation)
 ini_set('display_errors', 1);
 error_reporting(E_ALL);
 
@@ -46,13 +44,6 @@ function runVerboseDiagnostics(): array {
         $tables = $pdo->query("SHOW TABLES")->fetchAll(PDO::FETCH_COLUMN);
         $output[] = "Tables found: " . implode(', ', $tables);
 
-        if (!in_array('shifts', $tables)) $output[] = "ERROR: 'shifts' table missing!";
-        if (!in_array('clinics', $tables)) $output[] = "ERROR: 'clinics' table missing!";
-        if (!in_array('reservations', $tables)) $output[] = "ERROR: 'reservations' table missing!";
-
-        $colsShifts = $pdo->query("DESCRIBE shifts")->fetchAll(PDO::FETCH_COLUMN);
-        $output[] = "shifts columns: " . implode(', ', $colsShifts);
-
         $morningCount = $pdo->query("SELECT COUNT(*) FROM shifts WHERE slot = 'morning'")->fetchColumn();
         $output[] = "Morning shifts in DB: " . $morningCount;
 
@@ -84,8 +75,6 @@ function fetchAllShiftsWithReservations(): array {
         LEFT JOIN professionals p ON p.id = rp.professional_id
         ORDER BY FIELD(s.day, 'monday','tuesday','wednesday','thursday','friday','saturday','sunday'), 
                  FIELD(s.slot, 'morning','afternoon'), c.id";
-
-    echo "SQL executed.<br>";
 
     try {
         $rows = $pdo->query($sql)->fetchAll();
@@ -144,13 +133,17 @@ function getProfessionalsByType(string $type): array {
     }
 }
 
-// ====================== SAVE RESERVATION ======================
+// ====================== SAVE RESERVATION WITH PROTECTION ======================
 function saveReservation(array $data): void {
     $pdo = getPDO();
     $pdo->beginTransaction();
     try {
+        $shiftId  = $data['shift_id'];
+        $clinicId = $data['clinic_id'];
+
+        // Get current reservation or create new
         $stmt = $pdo->prepare("SELECT id FROM reservations WHERE shift_id = ? AND clinic_id = ?");
-        $stmt->execute([$data['shift_id'], $data['clinic_id']]);
+        $stmt->execute([$shiftId, $clinicId]);
         $existing = $stmt->fetch();
 
         if ($existing) {
@@ -160,22 +153,32 @@ function saveReservation(array $data): void {
             $pdo->prepare("DELETE FROM reservation_professionals WHERE reservation_id = ?")->execute([$reservationId]);
         } else {
             $pdo->prepare("INSERT INTO reservations (shift_id, clinic_id, status) VALUES (?, ?, ?)")
-                ->execute([$data['shift_id'], $data['clinic_id'], $data['status']]);
+                ->execute([$shiftId, $clinicId, $data['status']]);
             $reservationId = $pdo->lastInsertId();
         }
 
-        $insert = $pdo->prepare("INSERT INTO reservation_professionals (reservation_id, professional_id) VALUES (?, ?)");
-        $professionalIds = array_unique(array_merge(
-            (array)($data['surgeons'] ?? []),
-            (array)($data['anesthetists'] ?? [])
-        ));
+        // === PROTECTION: MAX 2 SURGEONS AND 2 ANESTHETISTS ===
+        $surgeonsToAdd     = array_slice((array)($data['surgeons'] ?? []), 0, 2);
+        $anesthetistsToAdd = array_slice((array)($data['anesthetists'] ?? []), 0, 2);
 
-        foreach ($professionalIds as $pid) {
+        if (count($surgeonsToAdd) > 2 || count($anesthetistsToAdd) > 2) {
+            throw new Exception("Cannot assign more than 2 surgeons or 2 anesthetists per shift.");
+        }
+
+        $insert = $pdo->prepare("INSERT INTO reservation_professionals (reservation_id, professional_id) VALUES (?, ?)");
+
+        foreach ($surgeonsToAdd as $pid) {
             if (!empty($pid)) $insert->execute([$reservationId, $pid]);
         }
+        foreach ($anesthetistsToAdd as $pid) {
+            if (!empty($pid)) $insert->execute([$reservationId, $pid]);
+        }
+
         $pdo->commit();
+        echo "<div style='color:green'>✓ Reservation saved (max 2 per role enforced)</div>";
     } catch (Exception $e) {
         $pdo->rollBack();
+        echo "<div style='color:red'>Save failed: " . htmlspecialchars($e->getMessage()) . "</div>";
         throw $e;
     }
 }

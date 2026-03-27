@@ -1,9 +1,13 @@
 <?php
-// index.php - pq2 (Backend English / UI Spanish - Mobile Responsive + Restricted Booking)
+// index.php - pq2 FINAL (Mobile Responsive + Privacy + Export + Navigation)
 ini_set('display_errors', 1);
 error_reporting(E_ALL);
 
 require_once 'db.php';
+
+// ====================== WEEK NAVIGATION ======================
+$offset = isset($_GET['week_offset']) ? (int)$_GET['week_offset'] : 0;
+$weekStart = strtotime("monday this week") + ($offset * 7 * 86400);
 
 // ====================== CURRENT PROFILE ======================
 $currentProfile = $_GET['profile'] ?? 'admin';
@@ -38,7 +42,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     'anesthetists' => $_POST['anesthetists'] ?? [],
                 ];
             } else if ($currentUserId && $currentRole) {
-                // Get current assignment
                 $stmt = $pdo->prepare("
                     SELECT p.id, p.role 
                     FROM reservation_professionals rp
@@ -78,7 +81,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $data = ['shift_id' => $shiftId, 'clinic_id' => $clinicId, 'surgeons' => [], 'anesthetists' => []];
             }
 
-            // Auto status + enforce max 2+2
             $hasS = !empty($data['surgeons']);
             $hasA = !empty($data['anesthetists']);
             $data['status'] = ($hasS && $hasA) ? 'full' : ($hasS || $hasA ? 'partial' : 'empty');
@@ -91,11 +93,38 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     } catch (Exception $e) {
         echo "<div style='background:#fee2e2;padding:15px;'>Error: " . htmlspecialchars($e->getMessage()) . "</div>";
     }
-    header("Location: index.php?profile=" . urlencode($currentProfile));
+    header("Location: index.php?profile=" . urlencode($currentProfile) . "&week_offset=" . $offset);
     exit;
 }
 
-// Load data
+// Export to Excel (CSV) for Admin
+if ($isAdmin && isset($_GET['export']) && $_GET['export'] === 'excel') {
+    header('Content-Type: text/csv; charset=utf-8');
+    header('Content-Disposition: attachment; filename="planificacion_quirurgica_semana_' . date('Y-m-d', $weekStart) . '.csv"');
+    $out = fopen('php://output', 'w');
+    fputcsv($out, ['Día', 'Franja', 'Clínica', 'Estado', 'Cirujanos', 'Anestesistas']);
+
+    $weekData = fetchAllShiftsWithReservations();
+    foreach ($weekData as $day => $slots) {
+        foreach (['morning','afternoon'] as $slotKey) {
+            foreach ($slots[$slotKey] ?? [] as $slot) {
+                $surgeonsCount = count($slot['surgeons'] ?? []);
+                $anestsCount   = count($slot['anesthetists'] ?? []);
+                fputcsv($out, [
+                    ucfirst($day),
+                    $slotKey === 'morning' ? 'Mañana' : 'Tarde',
+                    $slot['clinic'],
+                    strtoupper($slot['status'] ?? 'empty'),
+                    $surgeonsCount,
+                    $anestsCount
+                ]);
+            }
+        }
+    }
+    fclose($out);
+    exit;
+}
+
 $weekData = fetchAllShiftsWithReservations();
 
 $weekDaysES = ['monday'=>'Lunes','tuesday'=>'Martes','wednesday'=>'Miércoles','thursday'=>'Jueves','friday'=>'Viernes','saturday'=>'Sábado','sunday'=>'Domingo'];
@@ -112,46 +141,17 @@ $anesthetistsList = getProfessionalsByType('anesthetist');
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Planificación Quirúrgica - CiruCall</title>
     <link rel="stylesheet" href="styles.php">
-    <style>
-        body { font-family: system-ui, sans-serif; margin:0; padding:0; background:#f8fafc; }
-        .app { max-width: 1000px; margin: 0 auto; padding: 12px; }
-        .day { background: white; border-radius: 12px; margin-bottom: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); overflow: hidden; }
-        .day-header { display: flex; justify-content: space-between; padding: 12px 16px; background: #f1f5f9; font-weight: 600; }
-        .shifts { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; padding: 12px; }
-        .shift-title { font-size: 0.85rem; font-weight: 700; color: #475569; margin-bottom: 8px; text-align: center; }
-        .clinic-card { padding: 12px; border-radius: 10px; border: 1px solid #e2e8f0; cursor: pointer; transition: all 0.2s; }
-        .clinic-card:hover { transform: translateY(-2px); box-shadow: 0 6px 16px rgba(0,0,0,0.12); }
-        .state-empty   { background: #fee2e2; border-color: #ef4444; }
-        .state-partial { background: #fef3c7; border-color: #f59e0b; }
-        .state-full    { background: #dcfce7; border-color: #16a34a; }
-        .my-shift      { border: 3px solid #2563eb !important; box-shadow: 0 0 0 4px rgba(37,99,235,0.2) !important; }
-        
-        /* Mobile optimizations */
-        @media (max-width: 640px) {
-            .shifts { grid-template-columns: 1fr; gap: 10px; }
-            .clinic-card { padding: 10px; font-size: 0.95rem; }
-            .day-header { flex-direction: column; gap: 4px; text-align: center; }
-        }
-
-        .modal-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,0.7); display: none; align-items: center; justify-content: center; z-index: 1000; }
-        .modal { background: white; padding: 24px; border-radius: 16px; width: 90%; max-width: 420px; box-shadow: 0 10px 30px rgba(0,0,0,0.3); }
-        .yes-no { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 20px; }
-        .yes-no button { padding: 14px; font-size: 1.1rem; border: none; border-radius: 10px; cursor: pointer; }
-        .yes-btn { background: #16a34a; color: white; }
-        .no-btn  { background: #ef4444; color: white; }
-        footer { margin-top: 40px; padding: 20px; text-align: center; font-size: 0.9rem; color: #64748b; background: #f8fafc; border-top: 1px solid #e2e8f0; }
-    </style>
 </head>
 <body>
 <div class="app">
 
-    <header style="margin-bottom:20px;">
-        <h1 style="margin:0;">Planificación Quirúrgica</h1>
-        <p style="margin:4px 0 0 0;color:#64748b;">Sistema de asignación de turnos semanales</p>
+    <header>
+        <h1>Planificación Quirúrgica</h1>
+        <p>Sistema de asignación de turnos semanales</p>
         
-        <div style="margin-top:16px;">
+        <div style="margin:15px 0;">
             <label>Perfil actual: </label>
-            <select onchange="window.location='index.php?profile=' + this.value" style="padding:8px;font-size:1rem;">
+            <select onchange="window.location='index.php?profile=' + this.value + '&week_offset=<?= $offset ?>'">
                 <option value="admin" <?= $isAdmin ? 'selected' : '' ?>>Administrador</option>
                 <?php foreach ($surgeonsList as $s): ?>
                 <option value="surgeon_<?= $s['id'] ?>" <?= $currentProfile === "surgeon_{$s['id']}" ? 'selected' : '' ?>>
@@ -165,7 +165,17 @@ $anesthetistsList = getProfessionalsByType('anesthetist');
                 <?php endforeach; ?>
             </select>
         </div>
+
+        <?php if ($isAdmin): ?>
+        <a href="?export=excel&profile=admin&week_offset=<?= $offset ?>" style="background:#16a34a;color:white;padding:8px 16px;border-radius:6px;text-decoration:none;">Exportar semana a Excel</a>
+        <?php endif; ?>
     </header>
+
+    <div style="text-align:center;margin:10px 0 20px;">
+        <a href="index.php?profile=<?= urlencode($currentProfile) ?>&week_offset=<?= $offset - 1 ?>" style="margin:0 15px;">← Semana anterior</a>
+        <strong><?= date('d M Y', $weekStart) ?> - <?= date('d M Y', $weekStart + 6*86400) ?></strong>
+        <a href="index.php?profile=<?= urlencode($currentProfile) ?>&week_offset=<?= $offset + 1 ?>" style="margin:0 15px;">Semana siguiente →</a>
+    </div>
 
     <main>
         <?php foreach (array_keys($weekDaysES) as $dayKey): 
@@ -175,7 +185,7 @@ $anesthetistsList = getProfessionalsByType('anesthetist');
         <div class="day">
             <div class="day-header">
                 <h2><?= $dayNameES ?></h2>
-                <span><?= date('d M Y', strtotime("this $dayKey")) ?></span>
+                <span><?= date('d M', strtotime("this $dayKey", $weekStart)) ?></span>
             </div>
 
             <div class="shifts">
@@ -196,12 +206,25 @@ $anesthetistsList = getProfessionalsByType('anesthetist');
                                 in_array($currentName, $slot['anesthetists'] ?? [])
                             );
                             $highlight = (!$isAdmin && $selfAssigned) ? ' my-shift' : '';
+
+                            // Privacy: non-admin sees only counts on full shifts
+                            $showNames = $isAdmin || $status !== 'full';
                         ?>
                         <div class="clinic-card state-<?= $status ?><?= $highlight ?>" 
                              onclick="openBookingModal(<?= (int)$slot['shift_id'] ?>, <?= (int)$slot['clinic_id'] ?>, '<?= addslashes(htmlspecialchars($slot['clinic'])) ?>', <?= htmlspecialchars(json_encode($slot)) ?>)">
                             <strong><?= htmlspecialchars($slot['clinic']) ?></strong><br>
-                            Cirujanos: <?= $hasS ? implode(', ', $slot['surgeons']) : '—' ?><br>
-                            Anestesistas: <?= $hasA ? implode(', ', $slot['anesthetists']) : '—' ?>
+                            Cirujanos: 
+                            <?php if ($showNames): ?>
+                                <?= $hasS ? implode(', ', array_map(fn($n) => ($n === $currentName ? "<strong><u>$n</u></strong>" : $n), $slot['surgeons'])) : '—' ?>
+                            <?php else: ?>
+                                <?= count($slot['surgeons'] ?? []) ?> 
+                            <?php endif; ?><br>
+                            Anestesistas: 
+                            <?php if ($showNames): ?>
+                                <?= $hasA ? implode(', ', array_map(fn($n) => ($n === $currentName ? "<strong><u>$n</u></strong>" : $n), $slot['anesthetists'])) : '—' ?>
+                            <?php else: ?>
+                                <?= count($slot['anesthetists'] ?? []) ?> 
+                            <?php endif; ?>
                         </div>
                         <?php endforeach; ?>
                     </div>
@@ -215,12 +238,13 @@ $anesthetistsList = getProfessionalsByType('anesthetist');
     <footer>
         Estados: verde = completo · amarillo = parcial · rojo = vacío · La información se adapta al perfil seleccionado.<br>
         © 2026 CiruCall - Planificación quirúrgica 
-        <a href="doc-planificacion.php" style="color:#2563eb;text-decoration:underline;">Documentación técnica del sistema</a>
+        <a href="doc-planificacion.php" style="color:#2563eb;text-decoration:underline;">Documentación técnica</a> | 
+        <a href="planificacion-quirurgica-v2.md" style="color:#2563eb;text-decoration:underline;">Descripción v2</a>
     </footer>
 
 </div>
 
-<!-- Modal -->
+<!-- Modal (same as previous version with Sí/No for non-admin) -->
 <div id="bookingModal" class="modal-backdrop">
     <div class="modal">
         <h3>Gestionar Reserva</h3>
@@ -232,7 +256,6 @@ $anesthetistsList = getProfessionalsByType('anesthetist');
             <p><strong id="modalClinicName"></strong> — <span id="modalSlot"></span></p>
 
             <?php if ($isAdmin): ?>
-                <!-- Admin full control -->
                 <label>Cirujanos (máx 2)</label><br>
                 <select name="surgeons[]" id="modalSurgeons" multiple style="width:100%;height:100px;margin:8px 0;">
                     <?php foreach ($surgeonsList as $s): ?>
@@ -247,7 +270,6 @@ $anesthetistsList = getProfessionalsByType('anesthetist');
                     <?php endforeach; ?>
                 </select>
             <?php else: ?>
-                <!-- Surgeon / Anesthetist restricted booking -->
                 <p style="font-size:1.15rem;margin:20px 0 10px 0;">¿Asistiré a este turno?</p>
                 <div class="yes-no">
                     <button type="button" class="yes-btn" onclick="setAttendance('yes')">Sí</button>
@@ -275,7 +297,6 @@ function openBookingModal(shiftId, clinicId, clinicName, slotData) {
     document.getElementById('modalSlot').textContent = (slotData.slot || '').toUpperCase();
 
     if (!document.getElementById('willAttend')) {
-        // Admin mode - preselect
         const sSel = document.getElementById('modalSurgeons');
         const aSel = document.getElementById('modalAnesthetists');
         Array.from(sSel.options).forEach(opt => opt.selected = (slotData.surgeons || []).includes(opt.text));

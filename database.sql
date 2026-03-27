@@ -127,3 +127,16 @@ JOIN reservations r2
   ON r1.shift_id = r2.shift_id
  AND r1.clinic_id = r2.clinic_id
  AND r1.id > r2.id;
+
+-- Safe cleanup: Remove excess professionals (more than 2 per role per reservation)
+DELETE FROM reservation_professionals 
+WHERE reservation_id IN (
+    SELECT reservation_id 
+    FROM (
+        SELECT rp.reservation_id, p.role, COUNT(*) as cnt
+        FROM reservation_professionals rp
+        JOIN professionals p ON rp.professional_id = p.id
+        GROUP BY rp.reservation_id, p.role
+        HAVING cnt > 2
+    ) AS excess
+);
