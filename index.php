@@ -1,5 +1,5 @@
 <?php
-// index.php - pq2 FINAL (Mobile Responsive + Privacy + Export + Navigation)
+// index.php - pq2 FINAL (Privacy Fixed + Simplified Non-Admin Modal)
 ini_set('display_errors', 1);
 error_reporting(E_ALL);
 
@@ -97,10 +97,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     exit;
 }
 
-// Export to Excel (CSV) for Admin
+// Export to Excel for Admin
 if ($isAdmin && isset($_GET['export']) && $_GET['export'] === 'excel') {
     header('Content-Type: text/csv; charset=utf-8');
-    header('Content-Disposition: attachment; filename="planificacion_quirurgica_semana_' . date('Y-m-d', $weekStart) . '.csv"');
+    header('Content-Disposition: attachment; filename="planificacion_quirurgica_' . date('Y-m-d', $weekStart) . '.csv"');
     $out = fopen('php://output', 'w');
     fputcsv($out, ['Día', 'Franja', 'Clínica', 'Estado', 'Cirujanos', 'Anestesistas']);
 
@@ -108,15 +108,13 @@ if ($isAdmin && isset($_GET['export']) && $_GET['export'] === 'excel') {
     foreach ($weekData as $day => $slots) {
         foreach (['morning','afternoon'] as $slotKey) {
             foreach ($slots[$slotKey] ?? [] as $slot) {
-                $surgeonsCount = count($slot['surgeons'] ?? []);
-                $anestsCount   = count($slot['anesthetists'] ?? []);
                 fputcsv($out, [
                     ucfirst($day),
                     $slotKey === 'morning' ? 'Mañana' : 'Tarde',
                     $slot['clinic'],
                     strtoupper($slot['status'] ?? 'empty'),
-                    $surgeonsCount,
-                    $anestsCount
+                    count($slot['surgeons'] ?? []),
+                    count($slot['anesthetists'] ?? [])
                 ]);
             }
         }
@@ -167,14 +165,14 @@ $anesthetistsList = getProfessionalsByType('anesthetist');
         </div>
 
         <?php if ($isAdmin): ?>
-        <a href="?export=excel&profile=admin&week_offset=<?= $offset ?>" style="background:#16a34a;color:white;padding:8px 16px;border-radius:6px;text-decoration:none;">Exportar semana a Excel</a>
+        <a href="?export=excel&profile=admin&week_offset=<?= $offset ?>" style="background:#16a34a;color:white;padding:8px 16px;border-radius:6px;text-decoration:none;">Exportar a Excel</a>
         <?php endif; ?>
     </header>
 
-    <div style="text-align:center;margin:10px 0 20px;">
-        <a href="index.php?profile=<?= urlencode($currentProfile) ?>&week_offset=<?= $offset - 1 ?>" style="margin:0 15px;">← Semana anterior</a>
-        <strong><?= date('d M Y', $weekStart) ?> - <?= date('d M Y', $weekStart + 6*86400) ?></strong>
-        <a href="index.php?profile=<?= urlencode($currentProfile) ?>&week_offset=<?= $offset + 1 ?>" style="margin:0 15px;">Semana siguiente →</a>
+    <div style="text-align:center;margin:15px 0 25px;">
+        <a href="index.php?profile=<?= urlencode($currentProfile) ?>&week_offset=<?= $offset - 1 ?>">← Semana anterior</a>
+        <strong style="margin:0 20px;"><?= date('d M Y', $weekStart) ?> - <?= date('d M Y', $weekStart + 6*86400) ?></strong>
+        <a href="index.php?profile=<?= urlencode($currentProfile) ?>&week_offset=<?= $offset + 1 ?>">Semana siguiente →</a>
     </div>
 
     <main>
@@ -207,8 +205,8 @@ $anesthetistsList = getProfessionalsByType('anesthetist');
                             );
                             $highlight = (!$isAdmin && $selfAssigned) ? ' my-shift' : '';
 
-                            // Privacy: non-admin sees only counts on full shifts
-                            $showNames = $isAdmin || $status !== 'full';
+                            // Privacy: hide names on full shifts for non-admins unless they are assigned
+                            $showNames = $isAdmin || $status !== 'full' || $selfAssigned;
                         ?>
                         <div class="clinic-card state-<?= $status ?><?= $highlight ?>" 
                              onclick="openBookingModal(<?= (int)$slot['shift_id'] ?>, <?= (int)$slot['clinic_id'] ?>, '<?= addslashes(htmlspecialchars($slot['clinic'])) ?>', <?= htmlspecialchars(json_encode($slot)) ?>)">
@@ -217,13 +215,13 @@ $anesthetistsList = getProfessionalsByType('anesthetist');
                             <?php if ($showNames): ?>
                                 <?= $hasS ? implode(', ', array_map(fn($n) => ($n === $currentName ? "<strong><u>$n</u></strong>" : $n), $slot['surgeons'])) : '—' ?>
                             <?php else: ?>
-                                <?= count($slot['surgeons'] ?? []) ?> 
+                                <?= count($slot['surgeons'] ?? []) ?>
                             <?php endif; ?><br>
                             Anestesistas: 
                             <?php if ($showNames): ?>
                                 <?= $hasA ? implode(', ', array_map(fn($n) => ($n === $currentName ? "<strong><u>$n</u></strong>" : $n), $slot['anesthetists'])) : '—' ?>
                             <?php else: ?>
-                                <?= count($slot['anesthetists'] ?? []) ?> 
+                                <?= count($slot['anesthetists'] ?? []) ?>
                             <?php endif; ?>
                         </div>
                         <?php endforeach; ?>
@@ -244,7 +242,7 @@ $anesthetistsList = getProfessionalsByType('anesthetist');
 
 </div>
 
-<!-- Modal (same as previous version with Sí/No for non-admin) -->
+<!-- Modal -->
 <div id="bookingModal" class="modal-backdrop">
     <div class="modal">
         <h3>Gestionar Reserva</h3>
@@ -256,32 +254,34 @@ $anesthetistsList = getProfessionalsByType('anesthetist');
             <p><strong id="modalClinicName"></strong> — <span id="modalSlot"></span></p>
 
             <?php if ($isAdmin): ?>
+                <!-- Admin: full control -->
                 <label>Cirujanos (máx 2)</label><br>
-                <select name="surgeons[]" id="modalSurgeons" multiple style="width:100%;height:100px;margin:8px 0;">
+                <select name="surgeons[]" id="modalSurgeons" multiple style="width:100%;height:110px;margin:10px 0;">
                     <?php foreach ($surgeonsList as $s): ?>
                     <option value="<?= $s['id'] ?>"><?= htmlspecialchars($s['name']) ?></option>
                     <?php endforeach; ?>
                 </select><br><br>
 
                 <label>Anestesistas (máx 2)</label><br>
-                <select name="anesthetists[]" id="modalAnesthetists" multiple style="width:100%;height:100px;">
+                <select name="anesthetists[]" id="modalAnesthetists" multiple style="width:100%;height:110px;">
                     <?php foreach ($anesthetistsList as $a): ?>
                     <option value="<?= $a['id'] ?>"><?= htmlspecialchars($a['name']) ?></option>
                     <?php endforeach; ?>
                 </select>
+
+                <div style="margin-top:20px;">
+                    <button type="submit" style="width:100%;padding:12px;background:#2563eb;color:white;border:none;border-radius:8px;">Guardar</button>
+                    <button type="button" onclick="closeModal()" style="width:100%;padding:12px;margin-top:8px;background:#e2e8f0;border:none;border-radius:8px;">Cancelar</button>
+                </div>
             <?php else: ?>
-                <p style="font-size:1.15rem;margin:20px 0 10px 0;">¿Asistiré a este turno?</p>
-                <div class="yes-no">
-                    <button type="button" class="yes-btn" onclick="setAttendance('yes')">Sí</button>
-                    <button type="button" class="no-btn" onclick="setAttendance('no')">No</button>
+                <!-- Non-admin: only Sí / No -->
+                <p style="font-size:1.2rem;margin:25px 0 15px 0;text-align:center;">¿Asistiré a este turno?</p>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+                    <button type="button" onclick="setAttendance('yes')" style="padding:16px;font-size:1.1rem;background:#16a34a;color:white;border:none;border-radius:10px;">Sí</button>
+                    <button type="button" onclick="setAttendance('no')"  style="padding:16px;font-size:1.1rem;background:#ef4444;color:white;border:none;border-radius:10px;">No</button>
                 </div>
                 <input type="hidden" name="will_attend" id="willAttend" value="">
             <?php endif; ?>
-
-            <div style="margin-top:24px;">
-                <button type="submit" style="padding:12px 24px;background:#2563eb;color:white;border:none;border-radius:8px;width:100%;font-size:1.05rem;">Guardar</button>
-                <button type="button" onclick="closeModal()" style="padding:12px 24px;margin-top:8px;width:100%;background:#e2e8f0;border:none;border-radius:8px;">Cancelar</button>
-            </div>
         </form>
     </div>
 </div>
@@ -296,7 +296,7 @@ function openBookingModal(shiftId, clinicId, clinicName, slotData) {
     document.getElementById('modalClinicName').textContent = clinicName;
     document.getElementById('modalSlot').textContent = (slotData.slot || '').toUpperCase();
 
-    if (!document.getElementById('willAttend')) {
+    if (document.getElementById('modalSurgeons')) {
         const sSel = document.getElementById('modalSurgeons');
         const aSel = document.getElementById('modalAnesthetists');
         Array.from(sSel.options).forEach(opt => opt.selected = (slotData.surgeons || []).includes(opt.text));
