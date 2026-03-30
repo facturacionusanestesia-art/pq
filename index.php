@@ -1,17 +1,37 @@
 <?php
-// index.php - pq2 Date-Based Planning (Fully Integrated with new db.php)
+// index.php - Surgical planning main interface (Spanish UI, English code/logs)
+
 ini_set('display_errors', 1);
 error_reporting(E_ALL);
 
 require_once 'db.php';
 
+// ====================== INITIAL LOGGING ======================
+debug_log("========== NEW INDEX REQUEST ==========");
+debug_log("HTTP method: " . $_SERVER['REQUEST_METHOD']);
+debug_log("GET params", $_GET);
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    debug_log("POST params", $_POST);
+}
+
 // ====================== WEEK NAVIGATION ======================
 $offset = isset($_GET['week_offset']) ? (int)$_GET['week_offset'] : 0;
-$weekStartStr = date('Y-m-d', strtotime("monday this week") + ($offset * 7 * 86400));
+
+// Use a fixed timezone to avoid DST issues
+date_default_timezone_set('Europe/Madrid');
+$mondayThisWeek = strtotime('monday this week');
+if ($mondayThisWeek === false) {
+    $today = new DateTime('today');
+    $today->modify('monday this week');
+    $mondayThisWeek = $today->getTimestamp();
+}
+$weekStartStr = date('Y-m-d', $mondayThisWeek + ($offset * 7 * 86400));
+debug_log("Calculated week", ['offset' => $offset, 'weekStartStr' => $weekStartStr]);
 
 // ====================== CURRENT PROFILE ======================
 $currentProfile = $_GET['profile'] ?? 'admin';
 $isAdmin = $currentProfile === 'admin';
+debug_log("Current profile", ['profile' => $currentProfile, 'isAdmin' => $isAdmin]);
 
 $currentUserId = null;
 $currentRole = null;
@@ -23,6 +43,7 @@ if (preg_match('/^(surgeon|anesthetist)_(\d+)$/', $currentProfile, $matches)) {
     $stmt = getPDO()->prepare("SELECT name FROM professionals WHERE id = ?");
     $stmt->execute([$currentUserId]);
     $currentName = $stmt->fetchColumn() ?: '';
+    debug_log("Authenticated professional", ['role' => $currentRole, 'id' => $currentUserId, 'name' => $currentName]);
 }
 
 // ====================== POST HANDLING ======================
@@ -31,6 +52,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if ($_POST['action'] === 'save') {
             $shiftId  = (int)$_POST['shift_id'];
             $clinicId = (int)$_POST['clinic_id'];
+            debug_log("Processing 'save' action", ['shift_id' => $shiftId, 'clinic_id' => $clinicId]);
 
             if ($isAdmin) {
                 $data = [
@@ -39,6 +61,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     'surgeons'     => $_POST['surgeons'] ?? [],
                     'anesthetists' => $_POST['anesthetists'] ?? [],
                 ];
+                debug_log("Admin save data", $data);
             } else if ($currentUserId && $currentRole) {
                 // Get current assignment
                 $pdo = getPDO();
@@ -54,6 +77,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
                 $surgeonsIds = array_column(array_filter($current, fn($p) => $p['role']==='surgeon'), 'id');
                 $anestsIds   = array_column(array_filter($current, fn($p) => $p['role']==='anesthetist'), 'id');
+                debug_log("Current assignment before change", ['surgeons' => $surgeonsIds, 'anesthetists' => $anestsIds]);
 
                 $willAttend = ($_POST['will_attend'] ?? 'no') === 'yes';
 
@@ -77,6 +101,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     'surgeons'     => array_values($surgeonsIds),
                     'anesthetists' => array_values($anestsIds),
                 ];
+                debug_log("Data after professional change", $data);
             } else {
                 $data = ['shift_id' => $shiftId, 'clinic_id' => $clinicId, 'surgeons' => [], 'anesthetists' => []];
             }
@@ -84,13 +109,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $hasS = !empty($data['surgeons']);
             $hasA = !empty($data['anesthetists']);
             $data['status'] = ($hasS && $hasA) ? 'full' : ($hasS || $hasA ? 'partial' : 'empty');
+            debug_log("Calculated status", $data['status']);
 
             saveReservation($data);
         } 
         elseif ($_POST['action'] === 'delete' && $isAdmin && function_exists('deleteReservation')) {
+            debug_log("Deleting reservation", ['reservation_id' => $_POST['reservation_id']]);
             deleteReservation((int)$_POST['reservation_id']);
         }
     } catch (Exception $e) {
+        debug_log("POST ERROR", $e->getMessage());
         echo "<div style='background:#fee2e2;padding:15px;'>Error: " . htmlspecialchars($e->getMessage()) . "</div>";
     }
     header("Location: index.php?profile=" . urlencode($currentProfile) . "&week_offset=" . $offset);
@@ -99,10 +127,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 // Export to Excel (Admin only)
 if ($isAdmin && isset($_GET['export']) && $_GET['export'] === 'excel') {
+    debug_log("Exporting to Excel for week", $weekStartStr);
     header('Content-Type: text/csv; charset=utf-8');
-    header('Content-Disposition: attachment; filename="surgical_planning_' . $weekStartStr . '.csv"');
+    header('Content-Disposition: attachment; filename="planificacion_quirurgica_' . $weekStartStr . '.csv"');
     $out = fopen('php://output', 'w');
-    fputcsv($out, ['Date', 'Slot', 'Clinic', 'Status', 'Surgeons Count', 'Anesthetists Count']);
+    fputcsv($out, ['Fecha', 'Turno', 'Clínica', 'Estado', 'Nº Cirujanos', 'Nº Anestesistas']);
 
     $weekData = fetchShiftsForWeek($weekStartStr);
     foreach ($weekData as $date => $slots) {
@@ -110,9 +139,9 @@ if ($isAdmin && isset($_GET['export']) && $_GET['export'] === 'excel') {
             foreach ($slotList as $slot) {
                 fputcsv($out, [
                     $date,
-                    ucfirst($slotKey),
+                    ucfirst($slotKey) == 'Morning' ? 'Mañana' : 'Tarde',
                     $slot['clinic'],
-                    strtoupper($slot['status'] ?? 'empty'),
+                    strtoupper($slot['status'] ?? 'empty') == 'FULL' ? 'Completo' : (strtoupper($slot['status'] ?? 'empty') == 'PARTIAL' ? 'Parcial' : 'Vacío'),
                     count($slot['surgeons'] ?? []),
                     count($slot['anesthetists'] ?? [])
                 ]);
@@ -123,8 +152,21 @@ if ($isAdmin && isset($_GET['export']) && $_GET['export'] === 'excel') {
     exit;
 }
 
-// Load data for the selected week (date-based)
+// ====================== LOAD WEEK DATA ======================
+debug_log("Calling fetchShiftsForWeek with startDate = $weekStartStr");
 $weekData = fetchShiftsForWeek($weekStartStr);
+
+if (empty($weekData)) {
+    debug_log("WARNING: weekData is empty. No shifts will be displayed.");
+} else {
+    $totalCards = 0;
+    foreach ($weekData as $date => $slots) {
+        foreach ($slots as $slotKey => $slotArray) {
+            $totalCards += count($slotArray);
+        }
+    }
+    debug_log("Total clinic cards generated", $totalCards);
+}
 
 $weekDaysES = ['monday'=>'Lunes','tuesday'=>'Martes','wednesday'=>'Miércoles','thursday'=>'Jueves','friday'=>'Viernes','saturday'=>'Sábado','sunday'=>'Domingo'];
 $slotLabels = ['morning' => 'MAÑANA', 'afternoon' => 'TARDE'];

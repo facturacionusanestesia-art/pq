@@ -1,0 +1,546 @@
+2026-03-30 12:53:57 - ========== NEW INDEX REQUEST ==========
+2026-03-30 12:53:57 - HTTP method: GET
+2026-03-30 12:53:57 - GET params - Array
+(
+    [profile] => surgeon_2
+    [week_offset] => 5
+)
+
+2026-03-30 14:53:57 - Calculated week - Array
+(
+    [offset] => 5
+    [weekStartStr] => 2026-05-04
+)
+
+2026-03-30 14:53:57 - Current profile - Array
+(
+    [profile] => surgeon_2
+    [isAdmin] => 
+)
+
+2026-03-30 14:53:57 - Loading DB config - Array
+(
+    [host] => localhost
+    [dbname] => pq2
+    [user] => cirucall2
+)
+
+2026-03-30 14:53:59 - PDO connection established
+2026-03-30 12:54:39 - ========== NEW INDEX REQUEST ==========
+2026-03-30 12:54:39 - HTTP method: GET
+2026-03-30 12:54:39 - GET params - Array
+(
+    [profile] => surgeon_2
+    [week_offset] => 5
+)
+
+2026-03-30 14:54:39 - Calculated week - Array
+(
+    [offset] => 5
+    [weekStartStr] => 2026-05-04
+)
+
+2026-03-30 14:54:39 - Current profile - Array
+(
+    [profile] => surgeon_2
+    [isAdmin] => 
+)
+
+2026-03-30 14:54:39 - Loading DB config - Array
+(
+    [host] => localhost
+    [dbname] => pq2
+    [user] => cirucall2
+)
+
+2026-03-30 14:54:40 - PDO connection established
+2026-03-30 14:54:40 - Authenticated professional - Array
+(
+    [role] => surgeon
+    [id] => 2
+    [name] => Deus
+)
+
+2026-03-30 14:54:40 - Calling fetchShiftsForWeek with startDate = 2026-05-04
+2026-03-30 14:54:40 - fetchShiftsForWeek - START - Array
+(
+    [startDate] => 2026-05-04
+)
+
+2026-03-30 14:54:40 - SQL query - SELECT 
+            s.id AS shift_id, 
+            s.shift_date,
+            s.slot,
+            c.id AS clinic_id, 
+            c.name AS clinic,
+            r.id AS reservation_id, 
+            r.status,
+            p.name AS professional_name, 
+            p.role AS professional_role
+        FROM shifts s
+        CROSS JOIN clinics c
+        LEFT JOIN reservations r ON r.shift_id = s.id AND r.clinic_id = c.id
+        LEFT JOIN reservation_professionals rp ON rp.reservation_id = r.id
+        LEFT JOIN professionals p ON p.id = rp.professional_id
+        WHERE s.shift_date BETWEEN ? AND DATE_ADD(?, INTERVAL 6 DAY)
+        ORDER BY s.shift_date, FIELD(s.slot, 'morning','afternoon'), c.name
+2026-03-30 14:54:40 - Parameters: startDate = 2026-05-04, calculated endDate = 2026-05-10
+2026-03-30 14:54:40 - Number of rows returned by query - 60
+2026-03-30 14:54:40 - Final $weekData structure - Array
+(
+    [dates_with_data] => Array
+        (
+            [0] => 2026-05-04
+            [1] => 2026-05-05
+            [2] => 2026-05-06
+            [3] => 2026-05-07
+            [4] => 2026-05-08
+            [5] => 2026-05-09
+        )
+
+    [total_slots_processed] => 60
+)
+
+2026-03-30 14:54:40 - Total clinic cards generated - 60
+2026-03-30 14:54:40 - getProfessionalsByType called with type = surgeon
+2026-03-30 14:54:40 - Professionals found for surgeon - 5
+2026-03-30 14:54:40 - getProfessionalsByType called with type = anesthetist
+2026-03-30 14:54:40 - Professionals found for anesthetist - 4
+2026-03-30 12:54:52 - ========== NEW INDEX REQUEST ==========
+2026-03-30 12:54:52 - HTTP method: GET
+2026-03-30 12:54:52 - GET params - Array
+(
+    [profile] => admin
+    [week_offset] => 5
+)
+
+2026-03-30 14:54:52 - Calculated week - Array
+(
+    [offset] => 5
+    [weekStartStr] => 2026-05-04
+)
+
+2026-03-30 14:54:52 - Current profile - Array
+(
+    [profile] => admin
+    [isAdmin] => 1
+)
+
+2026-03-30 14:54:52 - Calling fetchShiftsForWeek with startDate = 2026-05-04
+2026-03-30 14:54:52 - fetchShiftsForWeek - START - Array
+(
+    [startDate] => 2026-05-04
+)
+
+2026-03-30 14:54:52 - Loading DB config - Array
+(
+    [host] => localhost
+    [dbname] => pq2
+    [user] => cirucall2
+)
+
+2026-03-30 14:54:53 - PDO connection established
+2026-03-30 14:54:53 - SQL query - SELECT 
+            s.id AS shift_id, 
+            s.shift_date,
+            s.slot,
+            c.id AS clinic_id, 
+            c.name AS clinic,
+            r.id AS reservation_id, 
+            r.status,
+            p.name AS professional_name, 
+            p.role AS professional_role
+        FROM shifts s
+        CROSS JOIN clinics c
+        LEFT JOIN reservations r ON r.shift_id = s.id AND r.clinic_id = c.id
+        LEFT JOIN reservation_professionals rp ON rp.reservation_id = r.id
+        LEFT JOIN professionals p ON p.id = rp.professional_id
+        WHERE s.shift_date BETWEEN ? AND DATE_ADD(?, INTERVAL 6 DAY)
+        ORDER BY s.shift_date, FIELD(s.slot, 'morning','afternoon'), c.name
+2026-03-30 14:54:53 - Parameters: startDate = 2026-05-04, calculated endDate = 2026-05-10
+2026-03-30 14:54:53 - Number of rows returned by query - 60
+2026-03-30 14:54:53 - Final $weekData structure - Array
+(
+    [dates_with_data] => Array
+        (
+            [0] => 2026-05-04
+            [1] => 2026-05-05
+            [2] => 2026-05-06
+            [3] => 2026-05-07
+            [4] => 2026-05-08
+            [5] => 2026-05-09
+        )
+
+    [total_slots_processed] => 60
+)
+
+2026-03-30 14:54:53 - Total clinic cards generated - 60
+2026-03-30 14:54:53 - getProfessionalsByType called with type = surgeon
+2026-03-30 14:54:53 - Professionals found for surgeon - 5
+2026-03-30 14:54:53 - getProfessionalsByType called with type = anesthetist
+2026-03-30 14:54:53 - Professionals found for anesthetist - 4
+2026-03-30 12:54:55 - ========== NEW INDEX REQUEST ==========
+2026-03-30 12:54:55 - HTTP method: GET
+2026-03-30 12:54:55 - GET params - Array
+(
+    [profile] => admin
+    [week_offset] => 6
+)
+
+2026-03-30 14:54:55 - Calculated week - Array
+(
+    [offset] => 6
+    [weekStartStr] => 2026-05-11
+)
+
+2026-03-30 14:54:55 - Current profile - Array
+(
+    [profile] => admin
+    [isAdmin] => 1
+)
+
+2026-03-30 14:54:55 - Calling fetchShiftsForWeek with startDate = 2026-05-11
+2026-03-30 14:54:55 - fetchShiftsForWeek - START - Array
+(
+    [startDate] => 2026-05-11
+)
+
+2026-03-30 14:54:55 - Loading DB config - Array
+(
+    [host] => localhost
+    [dbname] => pq2
+    [user] => cirucall2
+)
+
+2026-03-30 14:54:56 - PDO connection established
+2026-03-30 14:54:56 - SQL query - SELECT 
+            s.id AS shift_id, 
+            s.shift_date,
+            s.slot,
+            c.id AS clinic_id, 
+            c.name AS clinic,
+            r.id AS reservation_id, 
+            r.status,
+            p.name AS professional_name, 
+            p.role AS professional_role
+        FROM shifts s
+        CROSS JOIN clinics c
+        LEFT JOIN reservations r ON r.shift_id = s.id AND r.clinic_id = c.id
+        LEFT JOIN reservation_professionals rp ON rp.reservation_id = r.id
+        LEFT JOIN professionals p ON p.id = rp.professional_id
+        WHERE s.shift_date BETWEEN ? AND DATE_ADD(?, INTERVAL 6 DAY)
+        ORDER BY s.shift_date, FIELD(s.slot, 'morning','afternoon'), c.name
+2026-03-30 14:54:56 - Parameters: startDate = 2026-05-11, calculated endDate = 2026-05-17
+2026-03-30 14:54:56 - Number of rows returned by query - 60
+2026-03-30 14:54:56 - Final $weekData structure - Array
+(
+    [dates_with_data] => Array
+        (
+            [0] => 2026-05-11
+            [1] => 2026-05-12
+            [2] => 2026-05-13
+            [3] => 2026-05-14
+            [4] => 2026-05-15
+            [5] => 2026-05-16
+        )
+
+    [total_slots_processed] => 60
+)
+
+2026-03-30 14:54:56 - Total clinic cards generated - 60
+2026-03-30 14:54:56 - getProfessionalsByType called with type = surgeon
+2026-03-30 14:54:56 - Professionals found for surgeon - 5
+2026-03-30 14:54:56 - getProfessionalsByType called with type = anesthetist
+2026-03-30 14:54:56 - Professionals found for anesthetist - 4
+2026-03-30 12:54:58 - ========== NEW INDEX REQUEST ==========
+2026-03-30 12:54:58 - HTTP method: GET
+2026-03-30 12:54:58 - GET params - Array
+(
+    [profile] => admin
+    [week_offset] => 5
+)
+
+2026-03-30 14:54:58 - Calculated week - Array
+(
+    [offset] => 5
+    [weekStartStr] => 2026-05-04
+)
+
+2026-03-30 14:54:58 - Current profile - Array
+(
+    [profile] => admin
+    [isAdmin] => 1
+)
+
+2026-03-30 14:54:58 - Calling fetchShiftsForWeek with startDate = 2026-05-04
+2026-03-30 14:54:58 - fetchShiftsForWeek - START - Array
+(
+    [startDate] => 2026-05-04
+)
+
+2026-03-30 14:54:58 - Loading DB config - Array
+(
+    [host] => localhost
+    [dbname] => pq2
+    [user] => cirucall2
+)
+
+2026-03-30 14:54:59 - PDO connection established
+2026-03-30 14:54:59 - SQL query - SELECT 
+            s.id AS shift_id, 
+            s.shift_date,
+            s.slot,
+            c.id AS clinic_id, 
+            c.name AS clinic,
+            r.id AS reservation_id, 
+            r.status,
+            p.name AS professional_name, 
+            p.role AS professional_role
+        FROM shifts s
+        CROSS JOIN clinics c
+        LEFT JOIN reservations r ON r.shift_id = s.id AND r.clinic_id = c.id
+        LEFT JOIN reservation_professionals rp ON rp.reservation_id = r.id
+        LEFT JOIN professionals p ON p.id = rp.professional_id
+        WHERE s.shift_date BETWEEN ? AND DATE_ADD(?, INTERVAL 6 DAY)
+        ORDER BY s.shift_date, FIELD(s.slot, 'morning','afternoon'), c.name
+2026-03-30 14:54:59 - Parameters: startDate = 2026-05-04, calculated endDate = 2026-05-10
+2026-03-30 14:54:59 - Number of rows returned by query - 60
+2026-03-30 14:54:59 - Final $weekData structure - Array
+(
+    [dates_with_data] => Array
+        (
+            [0] => 2026-05-04
+            [1] => 2026-05-05
+            [2] => 2026-05-06
+            [3] => 2026-05-07
+            [4] => 2026-05-08
+            [5] => 2026-05-09
+        )
+
+    [total_slots_processed] => 60
+)
+
+2026-03-30 14:54:59 - Total clinic cards generated - 60
+2026-03-30 14:54:59 - getProfessionalsByType called with type = surgeon
+2026-03-30 14:54:59 - Professionals found for surgeon - 5
+2026-03-30 14:54:59 - getProfessionalsByType called with type = anesthetist
+2026-03-30 14:54:59 - Professionals found for anesthetist - 4
+2026-03-30 13:10:00 - ========== NEW INDEX REQUEST ==========
+2026-03-30 13:10:00 - HTTP method: GET
+2026-03-30 13:10:00 - GET params - Array
+(
+    [profile] => admin
+    [week_offset] => 5
+)
+
+2026-03-30 15:10:00 - Calculated week - Array
+(
+    [offset] => 5
+    [weekStartStr] => 2026-05-04
+)
+
+2026-03-30 15:10:00 - Current profile - Array
+(
+    [profile] => admin
+    [isAdmin] => 1
+)
+
+2026-03-30 15:10:00 - Calling fetchShiftsForWeek with startDate = 2026-05-04
+2026-03-30 15:10:00 - fetchShiftsForWeek - START - Array
+(
+    [startDate] => 2026-05-04
+)
+
+2026-03-30 15:10:00 - Loading DB config - Array
+(
+    [host] => localhost
+    [dbname] => pq2
+    [user] => cirucall2
+)
+
+2026-03-30 15:10:01 - PDO connection established
+2026-03-30 15:10:01 - SQL query - SELECT 
+            s.id AS shift_id, 
+            s.shift_date,
+            s.slot,
+            c.id AS clinic_id, 
+            c.name AS clinic,
+            r.id AS reservation_id, 
+            r.status,
+            p.name AS professional_name, 
+            p.role AS professional_role
+        FROM shifts s
+        CROSS JOIN clinics c
+        LEFT JOIN reservations r ON r.shift_id = s.id AND r.clinic_id = c.id
+        LEFT JOIN reservation_professionals rp ON rp.reservation_id = r.id
+        LEFT JOIN professionals p ON p.id = rp.professional_id
+        WHERE s.shift_date BETWEEN ? AND DATE_ADD(?, INTERVAL 6 DAY)
+        ORDER BY s.shift_date, FIELD(s.slot, 'morning','afternoon'), c.name
+2026-03-30 15:10:01 - Parameters: startDate = 2026-05-04, calculated endDate = 2026-05-10
+2026-03-30 15:10:01 - Number of rows returned by query - 128
+2026-03-30 15:10:01 - Final $weekData structure - Array
+(
+    [dates_with_data] => Array
+        (
+            [0] => 2026-05-04
+            [1] => 2026-05-05
+            [2] => 2026-05-06
+            [3] => 2026-05-07
+            [4] => 2026-05-08
+            [5] => 2026-05-09
+        )
+
+    [total_slots_processed] => 128
+)
+
+2026-03-30 15:10:01 - Total clinic cards generated - 60
+2026-03-30 15:10:01 - getProfessionalsByType called with type = surgeon
+2026-03-30 15:10:01 - Professionals found for surgeon - 5
+2026-03-30 15:10:01 - getProfessionalsByType called with type = anesthetist
+2026-03-30 15:10:01 - Professionals found for anesthetist - 4
+2026-03-30 13:10:06 - ========== NEW INDEX REQUEST ==========
+2026-03-30 13:10:06 - HTTP method: GET
+2026-03-30 13:10:06 - GET params - Array
+(
+    [profile] => admin
+    [week_offset] => 6
+)
+
+2026-03-30 15:10:06 - Calculated week - Array
+(
+    [offset] => 6
+    [weekStartStr] => 2026-05-11
+)
+
+2026-03-30 15:10:06 - Current profile - Array
+(
+    [profile] => admin
+    [isAdmin] => 1
+)
+
+2026-03-30 15:10:06 - Calling fetchShiftsForWeek with startDate = 2026-05-11
+2026-03-30 15:10:06 - fetchShiftsForWeek - START - Array
+(
+    [startDate] => 2026-05-11
+)
+
+2026-03-30 15:10:06 - Loading DB config - Array
+(
+    [host] => localhost
+    [dbname] => pq2
+    [user] => cirucall2
+)
+
+2026-03-30 15:10:07 - PDO connection established
+2026-03-30 15:10:07 - SQL query - SELECT 
+            s.id AS shift_id, 
+            s.shift_date,
+            s.slot,
+            c.id AS clinic_id, 
+            c.name AS clinic,
+            r.id AS reservation_id, 
+            r.status,
+            p.name AS professional_name, 
+            p.role AS professional_role
+        FROM shifts s
+        CROSS JOIN clinics c
+        LEFT JOIN reservations r ON r.shift_id = s.id AND r.clinic_id = c.id
+        LEFT JOIN reservation_professionals rp ON rp.reservation_id = r.id
+        LEFT JOIN professionals p ON p.id = rp.professional_id
+        WHERE s.shift_date BETWEEN ? AND DATE_ADD(?, INTERVAL 6 DAY)
+        ORDER BY s.shift_date, FIELD(s.slot, 'morning','afternoon'), c.name
+2026-03-30 15:10:07 - Parameters: startDate = 2026-05-11, calculated endDate = 2026-05-17
+2026-03-30 15:10:07 - Number of rows returned by query - 126
+2026-03-30 15:10:07 - Final $weekData structure - Array
+(
+    [dates_with_data] => Array
+        (
+            [0] => 2026-05-11
+            [1] => 2026-05-12
+            [2] => 2026-05-13
+            [3] => 2026-05-14
+            [4] => 2026-05-15
+            [5] => 2026-05-16
+        )
+
+    [total_slots_processed] => 126
+)
+
+2026-03-30 15:10:07 - Total clinic cards generated - 60
+2026-03-30 15:10:07 - getProfessionalsByType called with type = surgeon
+2026-03-30 15:10:07 - Professionals found for surgeon - 5
+2026-03-30 15:10:07 - getProfessionalsByType called with type = anesthetist
+2026-03-30 15:10:07 - Professionals found for anesthetist - 4
+2026-03-30 13:10:08 - ========== NEW INDEX REQUEST ==========
+2026-03-30 13:10:08 - HTTP method: GET
+2026-03-30 13:10:08 - GET params - Array
+(
+    [profile] => admin
+    [week_offset] => 7
+)
+
+2026-03-30 15:10:08 - Calculated week - Array
+(
+    [offset] => 7
+    [weekStartStr] => 2026-05-18
+)
+
+2026-03-30 15:10:08 - Current profile - Array
+(
+    [profile] => admin
+    [isAdmin] => 1
+)
+
+2026-03-30 15:10:08 - Calling fetchShiftsForWeek with startDate = 2026-05-18
+2026-03-30 15:10:08 - fetchShiftsForWeek - START - Array
+(
+    [startDate] => 2026-05-18
+)
+
+2026-03-30 15:10:08 - Loading DB config - Array
+(
+    [host] => localhost
+    [dbname] => pq2
+    [user] => cirucall2
+)
+
+2026-03-30 15:10:09 - PDO connection established
+2026-03-30 15:10:09 - SQL query - SELECT 
+            s.id AS shift_id, 
+            s.shift_date,
+            s.slot,
+            c.id AS clinic_id, 
+            c.name AS clinic,
+            r.id AS reservation_id, 
+            r.status,
+            p.name AS professional_name, 
+            p.role AS professional_role
+        FROM shifts s
+        CROSS JOIN clinics c
+        LEFT JOIN reservations r ON r.shift_id = s.id AND r.clinic_id = c.id
+        LEFT JOIN reservation_professionals rp ON rp.reservation_id = r.id
+        LEFT JOIN professionals p ON p.id = rp.professional_id
+        WHERE s.shift_date BETWEEN ? AND DATE_ADD(?, INTERVAL 6 DAY)
+        ORDER BY s.shift_date, FIELD(s.slot, 'morning','afternoon'), c.name
+2026-03-30 15:10:09 - Parameters: startDate = 2026-05-18, calculated endDate = 2026-05-24
+2026-03-30 15:10:09 - Number of rows returned by query - 134
+2026-03-30 15:10:09 - Final $weekData structure - Array
+(
+    [dates_with_data] => Array
+        (
+            [0] => 2026-05-18
+            [1] => 2026-05-19
+            [2] => 2026-05-20
+            [3] => 2026-05-21
+            [4] => 2026-05-22
+            [5] => 2026-05-23
+        )
+
+    [total_slots_processed] => 134
+)
+
+2026-03-30 15:10:09 - Total clinic cards generated - 60
+2026-03-30 15:10:09 - getProfessionalsByType called with type = surgeon
+2026-03-30 15:10:09 - Professionals found for surgeon - 5
+2026-03-30 15:10:09 - getProfessionalsByType called with type = anesthetist
+2026-03-30 15:10:09 - Professionals found for anesthetist - 4
