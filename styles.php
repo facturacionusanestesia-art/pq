@@ -1,6 +1,5 @@
 <?php
-// styles.php - Complete CSS for pq2 Surgical Planning System
-// Spanish UI + Mobile Responsive + Professional Look
+// styles.php - Complete Mobile-Responsive CSS for pq2 Surgical Planning System
 header("Content-type: text/css");
 ?>
 
@@ -33,20 +32,20 @@ body {
 .app {
     max-width: 1100px;
     margin: 0 auto;
-    padding: 15px;
+    padding: 12px;
 }
 
 /* Header */
 header {
-    margin-bottom: 25px;
+    margin-bottom: 20px;
     text-align: center;
 }
 
 header h1 {
-    font-size: 1.8rem;
+    font-size: 1.85rem;
     font-weight: 700;
     color: #1e3a8a;
-    margin-bottom: 6px;
+    margin-bottom: 8px;
 }
 
 header p {
@@ -61,14 +60,28 @@ header select {
     border: 2px solid #cbd5e1;
     border-radius: 8px;
     background: white;
-    margin-top: 12px;
+    width: 100%;
+    max-width: 320px;
+}
+
+/* Week navigation */
+.week-nav {
+    text-align: center;
+    margin: 15px 0 25px;
+    font-size: 1rem;
+}
+
+.week-nav a {
+    color: var(--primary);
+    text-decoration: underline;
+    margin: 0 12px;
 }
 
 /* Day container */
 .day {
     background: var(--card);
     border-radius: 14px;
-    margin-bottom: 22px;
+    margin-bottom: 20px;
     box-shadow: 0 4px 15px rgba(0, 0, 0, 0.07);
     overflow: hidden;
 }
@@ -84,11 +97,7 @@ header select {
     border-bottom: 1px solid var(--border);
 }
 
-.day-header h2 {
-    color: #1e40af;
-}
-
-/* Shifts layout */
+/* Shifts grid */
 .shifts {
     display: grid;
     grid-template-columns: 1fr 1fr;
@@ -128,20 +137,9 @@ header select {
 }
 
 /* Status colors */
-.state-empty   { 
-    background: #fee2e2; 
-    border-color: #ef4444; 
-}
-
-.state-partial { 
-    background: #fef3c7; 
-    border-color: #f59e0b; 
-}
-
-.state-full    { 
-    background: #dcfce7; 
-    border-color: #16a34a; 
-}
+.state-empty   { background: #fee2e2; border-color: #ef4444; }
+.state-partial { background: #fef3c7; border-color: #f59e0b; }
+.state-full    { background: #dcfce7; border-color: #16a34a; }
 
 /* Personal shift highlight */
 .my-shift {
@@ -162,7 +160,7 @@ header select {
 
 .modal {
     background: white;
-    padding: 28px;
+    padding: 24px;
     border-radius: 16px;
     width: 92%;
     max-width: 460px;
@@ -172,16 +170,18 @@ header select {
 .modal h3 {
     margin-bottom: 18px;
     color: #1e3a8a;
+    text-align: center;
 }
 
-.yes-no {
+/* Yes/No buttons for non-admin */
+.yes-no-container {
     display: grid;
     grid-template-columns: 1fr 1fr;
     gap: 14px;
     margin: 24px 0 10px 0;
 }
 
-.yes-no button {
+.yes-no-container button {
     padding: 16px;
     font-size: 1.15rem;
     font-weight: 600;
@@ -195,7 +195,7 @@ header select {
 
 /* Footer */
 footer {
-    margin-top: 50px;
+    margin-top: 40px;
     padding: 20px 15px;
     text-align: center;
     font-size: 0.92rem;
@@ -205,7 +205,7 @@ footer {
     line-height: 1.6;
 }
 
-/* Mobile responsiveness */
+/* ==================== MOBILE RESPONSIVE IMPROVEMENTS ==================== */
 @media (max-width: 680px) {
     .app {
         padding: 10px;
@@ -234,21 +234,33 @@ footer {
     }
     
     .modal {
-        padding: 22px 20px;
+        padding: 22px 18px;
         width: 94%;
     }
     
-    .yes-no button {
+    .yes-no-container button {
         padding: 15px;
         font-size: 1.1rem;
     }
+    
+    .week-nav {
+        font-size: 0.95rem;
+    }
 }
 
-/* Small improvements */
-select, button {
-    font-family: inherit;
+/* Extra small screens */
+@media (max-width: 480px) {
+    header select {
+        font-size: 0.95rem;
+        padding: 9px 12px;
+    }
+    
+    .clinic-card strong {
+        font-size: 1.05rem;
+    }
 }
 
+/* Button active state */
 button:active {
     transform: scale(0.97);
 }

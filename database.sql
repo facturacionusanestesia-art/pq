@@ -5,83 +5,46 @@
 -- CREATE DATABASE pq2 CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 USE pq2;
 
--- ============================================================
--- TABLE: clinics
--- ============================================================
-CREATE TABLE clinics (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    name VARCHAR(50) NOT NULL,
-    code VARCHAR(10) NOT NULL UNIQUE
-);
+-- Drop old tables if they exist (backup first!)
+DROP TABLE IF EXISTS reservation_professionals;
+DROP TABLE IF EXISTS reservations;
+DROP TABLE IF EXISTS shifts;
+DROP TABLE IF EXISTS clinics;
+DROP TABLE IF EXISTS professionals;
 
-INSERT INTO clinics (name, code) VALUES
-('MCAN', 'MCAN'),
-('QUIR', 'QUIR'),
-('MIR',  'MIR'),
-('FLO',  'FLO'),
-('MONT', 'MONT');
-
--- ============================================================
--- TABLE: shifts
--- ============================================================
-CREATE TABLE shifts (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    day VARCHAR(20) NOT NULL,
-    slot ENUM('morning','afternoon') NOT NULL
-);
-
-INSERT INTO shifts (day, slot) VALUES
-('monday', 'morning'),   ('monday', 'afternoon'),
-('tuesday', 'morning'),  ('tuesday', 'afternoon'),
-('wednesday', 'morning'),('wednesday', 'afternoon'),
-('thursday', 'morning'), ('thursday', 'afternoon'),
-('friday', 'morning'),   ('friday', 'afternoon'),
-('saturday', 'morning'), ('saturday', 'afternoon'),
-('sunday', 'morning'),   ('sunday', 'afternoon');
-
--- ============================================================
--- TABLE: professionals
--- ============================================================
+-- Professionals
 CREATE TABLE professionals (
     id INT AUTO_INCREMENT PRIMARY KEY,
-    name VARCHAR(50) NOT NULL,
-    role ENUM('surgeon','anesthetist') NOT NULL
+    name VARCHAR(100) NOT NULL,
+    role ENUM('surgeon', 'anesthetist') NOT NULL
 );
 
-INSERT INTO professionals (name, role) VALUES
-('Sola', 'surgeon'),
-('Garrido', 'surgeon'),
-('Gros', 'surgeon'),
-('Deus', 'surgeon'),
-('Cuenca', 'surgeon'),
-('Domingo', 'surgeon'),
+-- Clinics
+CREATE TABLE clinics (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(100) NOT NULL UNIQUE
+);
 
-('Arauzo', 'anesthetist'),
-('Bes', 'anesthetist'),
-('Arroyo', 'anesthetist'),
-('Aspiroz', 'anesthetist'),
-('Céspedes', 'anesthetist'),
-('Consuegra', 'anesthetist'),
-('Izuzquiza', 'anesthetist'),
-('Lloreda', 'anesthetist'),
-('Ortiz', 'anesthetist');
+-- Shifts (now date-specific instead of weekday-only)
+CREATE TABLE shifts (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    shift_date DATE NOT NULL,
+    slot ENUM('morning', 'afternoon') NOT NULL,
+    UNIQUE KEY unique_shift (shift_date, slot)
+);
 
--- ============================================================
--- TABLE: reservations
--- ============================================================
+-- Reservations
 CREATE TABLE reservations (
     id INT AUTO_INCREMENT PRIMARY KEY,
     shift_id INT NOT NULL,
     clinic_id INT NOT NULL,
-    status ENUM('empty','partial','full') NOT NULL DEFAULT 'empty',
-    UNIQUE KEY unique_reservation (shift_id, clinic_id),
+    status ENUM('empty', 'partial', 'full') DEFAULT 'empty',
     FOREIGN KEY (shift_id) REFERENCES shifts(id) ON DELETE CASCADE,
-    FOREIGN KEY (clinic_id) REFERENCES clinics(id) ON DELETE CASCADE
+    FOREIGN KEY (clinic_id) REFERENCES clinics(id) ON DELETE CASCADE,
+    UNIQUE KEY unique_reservation (shift_id, clinic_id)
 );
 
--- ============================================================
--- TABLE: reservation_professionals
--- ============================================================
+-- Reservation professionals (max 2 per role enforced in code)
 CREATE TABLE reservation_professionals (
     id INT AUTO_INCREMENT PRIMARY KEY,
     reservation_id INT NOT NULL,
@@ -90,53 +53,21 @@ CREATE TABLE reservation_professionals (
     FOREIGN KEY (professional_id) REFERENCES professionals(id) ON DELETE CASCADE
 );
 
--- ============================================================
--- SAMPLE DATA
--- ============================================================
+-- Sample data
+INSERT INTO professionals (name, role) VALUES 
+('Sola', 'surgeon'), ('Deus', 'surgeon'), ('Cuenca', 'surgeon'), ('Garrido', 'surgeon'), ('Domingo', 'surgeon'),
+('Arauzo', 'anesthetist'), ('Lloreda', 'anesthetist'), ('Aspiroz', 'anesthetist'), ('Arroyo', 'anesthetist');
 
--- Create reservations for all shifts and clinics
-INSERT INTO reservations (shift_id, clinic_id, status)
-SELECT s.id, c.id,
-       CASE WHEN RAND() < 0.8 THEN 'full' ELSE 'partial' END
-FROM shifts s
-CROSS JOIN clinics c;
+INSERT INTO clinics (name) VALUES 
+('MCAN'), ('QUIR'), ('MIR'), ('FLO'), ('MONT');
 
--- Assign random surgeons
-INSERT INTO reservation_professionals (reservation_id, professional_id)
-SELECT r.id, p.id
-FROM reservations r
-JOIN professionals p
-WHERE p.role = 'surgeon'
-AND RAND() < 0.4;
-
--- Assign random anesthetists
-INSERT INTO reservation_professionals (reservation_id, professional_id)
-SELECT r.id, p.id
-FROM reservations r
-JOIN professionals p
-WHERE p.role = 'anesthetist'
-AND RAND() < 0.4;
-
--- Cleanup of duplicates and inconsistent data
-DELETE rp FROM reservation_professionals rp
-LEFT JOIN professionals p ON rp.professional_id = p.id
-WHERE p.id IS NULL;
-
-DELETE r1 FROM reservations r1
-JOIN reservations r2
-  ON r1.shift_id = r2.shift_id
- AND r1.clinic_id = r2.clinic_id
- AND r1.id > r2.id;
-
--- Safe cleanup: Remove excess professionals (more than 2 per role per reservation)
-DELETE FROM reservation_professionals 
-WHERE reservation_id IN (
-    SELECT reservation_id 
-    FROM (
-        SELECT rp.reservation_id, p.role, COUNT(*) as cnt
-        FROM reservation_professionals rp
-        JOIN professionals p ON rp.professional_id = p.id
-        GROUP BY rp.reservation_id, p.role
-        HAVING cnt > 2
-    ) AS excess
-);
+-- Generate shifts for the next 8 weeks (example)
+INSERT INTO shifts (shift_date, slot)
+SELECT 
+    DATE_ADD('2026-03-23', INTERVAL d DAY) AS shift_date,
+    slot
+FROM (
+    SELECT 0 AS d UNION SELECT 1 UNION SELECT 2 UNION SELECT 3 UNION SELECT 4 UNION SELECT 5 UNION SELECT 6
+) days
+CROSS JOIN (SELECT 'morning' AS slot UNION SELECT 'afternoon') slots
+WHERE DAYOFWEEK(DATE_ADD('2026-03-23', INTERVAL d DAY)) BETWEEN 2 AND 7;  -- Monday to Saturday
