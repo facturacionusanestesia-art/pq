@@ -248,8 +248,7 @@ $anesthetistsList = getProfessionalsByType('anesthetist');
     <footer>
         Estados: verde = completo · amarillo = parcial · rojo = vacío · La información se adapta al perfil seleccionado.<br>
         © 2026 CiruCall - Planificación quirúrgica 
-        <a href="doc-planificacion.php" style="color:#2563eb;text-decoration:underline;">Documentación técnica</a> | 
-        <a href="planificacion-quirurgica-v2.md" style="color:#2563eb;text-decoration:underline;">Descripción v2</a>
+        <a href="doc-planificacion.php" style="color:#2563eb;text-decoration:underline;">Documentación técnica</a>
     </footer>
 
 </div>
